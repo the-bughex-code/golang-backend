@@ -215,10 +215,10 @@ func TestParseAccessToken_RejectsGarbage(t *testing.T) {
 // Refresh tokens
 // ---------------------------------------------------------------------------
 
-func TestGenerateRefreshToken(t *testing.T) {
+func TestGenerateOpaqueToken(t *testing.T) {
 	t.Parallel()
 
-	raw, hash, err := GenerateRefreshToken()
+	raw, hash, err := GenerateOpaqueToken()
 	require.NoError(t, err)
 
 	// 32 random bytes, base64url without padding = 43 characters.
@@ -227,7 +227,7 @@ func TestGenerateRefreshToken(t *testing.T) {
 	assert.NotEqual(t, raw, hash)
 
 	// Hashing is deterministic, which is what lets us look the token up.
-	assert.Equal(t, hash, HashRefreshToken(raw))
+	assert.Equal(t, hash, HashOpaqueToken(raw))
 }
 
 func TestGenerateRefreshToken_IsUnpredictable(t *testing.T) {
@@ -235,7 +235,7 @@ func TestGenerateRefreshToken_IsUnpredictable(t *testing.T) {
 
 	seen := make(map[string]struct{}, 500)
 	for range 500 {
-		raw, _, err := GenerateRefreshToken()
+		raw, _, err := GenerateOpaqueToken()
 		require.NoError(t, err)
 		_, dup := seen[raw]
 		require.False(t, dup, "crypto/rand produced a duplicate token — this must never happen")

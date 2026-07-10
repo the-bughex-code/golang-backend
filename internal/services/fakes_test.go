@@ -147,11 +147,28 @@ func (f *fakeUserStore) SoftDelete(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// Compile-time proof that the fake satisfies both interfaces. Without these,
-// a signature change would surface as a confusing error at the call site.
+func (f *fakeUserStore) MarkEmailVerified(_ context.Context, id uuid.UUID, at time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// byID and byEmail hold the SAME pointer (see Create), so one write updates
+	// both views, exactly as a single database row would.
+	u, ok := f.byID[id]
+	if !ok {
+		return apperrors.NotFound("user")
+	}
+	verified := at
+	u.EmailVerifiedAt = &verified
+	return nil
+}
+
+// Compile-time proof that the fake satisfies every interface it stands in for.
+// Without these, a signature change would surface as a confusing error at the
+// call site instead of a clear one here.
 var (
-	_ AuthUserStore = (*fakeUserStore)(nil)
-	_ UserStore     = (*fakeUserStore)(nil)
+	_ AuthUserStore         = (*fakeUserStore)(nil)
+	_ UserStore             = (*fakeUserStore)(nil)
+	_ VerificationUserStore = (*fakeUserStore)(nil)
 )
 
 // ---------------------------------------------------------------------------
@@ -304,6 +321,160 @@ func (f *fakeRefreshStore) liveCount(userID uuid.UUID) int {
 }
 
 var _ RefreshTokenStore = (*fakeRefreshStore)(nil)
+
+// ---------------------------------------------------------------------------
+
+type fakeVerificationTokenStore struct {
+	mu     sync.Mutex
+	byHash map[string]*models.EmailVerificationToken
+}
+
+func newFakeVerificationTokenStore() *fakeVerificationTokenStore {
+	return &fakeVerificationTokenStore{byHash: make(map[string]*models.EmailVerificationToken)}
+}
+
+func (f *fakeVerificationTokenStore) Create(_ context.Context, t *models.EmailVerificationToken) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	t.CreatedAt = time.Now().UTC()
+	stored := *t
+	f.byHash[t.TokenHash] = &stored
+	return nil
+}
+
+func (f *fakeVerificationTokenStore) GetByHash(_ context.Context, hash string) (*models.EmailVerificationToken, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	t, ok := f.byHash[hash]
+	if !ok {
+		return nil, apperrors.NotFound("verification token")
+	}
+	clone := *t
+	return &clone, nil
+}
+
+// MarkUsed mirrors the repository's `AND used_at IS NULL` guard: a token that is
+// already used cannot be used again, and the caller learns so via NotFound.
+func (f *fakeVerificationTokenStore) MarkUsed(_ context.Context, id uuid.UUID, at time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, t := range f.byHash {
+		if t.ID == id {
+			if t.UsedAt != nil {
+				return apperrors.NotFound("verification token")
+			}
+			used := at
+			t.UsedAt = &used
+			return nil
+		}
+	}
+	return apperrors.NotFound("verification token")
+}
+
+func (f *fakeVerificationTokenStore) InvalidateAllForUser(_ context.Context, userID uuid.UUID, at time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, t := range f.byHash {
+		if t.UserID == userID && t.UsedAt == nil {
+			used := at
+			t.UsedAt = &used
+		}
+	}
+	return nil
+}
+
+func (f *fakeVerificationTokenStore) liveCount(userID uuid.UUID) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	n := 0
+	for _, t := range f.byHash {
+		if t.UserID == userID && t.UsedAt == nil {
+			n++
+		}
+	}
+	return n
+}
+
+var _ VerificationTokenStore = (*fakeVerificationTokenStore)(nil)
+
+// ---------------------------------------------------------------------------
+
+type sentMail struct {
+	to      string
+	subject string
+	body    string
+}
+
+// fakeMailer records what would have been sent, and can be told to fail.
+type fakeMailer struct {
+	mu   sync.Mutex
+	sent []sentMail
+	err  error
+}
+
+func (m *fakeMailer) Send(_ context.Context, to, subject, textBody string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.err != nil {
+		return m.err
+	}
+	m.sent = append(m.sent, sentMail{to: to, subject: subject, body: textBody})
+	return nil
+}
+
+func (m *fakeMailer) count() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.sent)
+}
+
+func (m *fakeMailer) last() sentMail {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.sent) == 0 {
+		return sentMail{}
+	}
+	return m.sent[len(m.sent)-1]
+}
+
+var _ Mailer = (*fakeMailer)(nil)
+
+// ---------------------------------------------------------------------------
+
+// fakeVerificationSender stands in for VerificationService in AuthService tests.
+//
+// AuthService only ever calls SendFor, which is why the port is a one-method
+// interface — and why this fake is six lines rather than sixty.
+type fakeVerificationSender struct {
+	mu    sync.Mutex
+	calls []uuid.UUID
+	err   error
+}
+
+func (f *fakeVerificationSender) SendFor(_ context.Context, user *models.User) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.err != nil {
+		return f.err
+	}
+	f.calls = append(f.calls, user.ID)
+	return nil
+}
+
+func (f *fakeVerificationSender) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.calls)
+}
+
+var _ VerificationSender = (*fakeVerificationSender)(nil)
 
 // ---------------------------------------------------------------------------
 

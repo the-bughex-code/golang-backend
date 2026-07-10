@@ -70,6 +70,7 @@ type Config struct {
 	JWT       JWTConfig
 	CORS      CORSConfig
 	RateLimit RateLimitConfig
+	Mail      MailConfig
 	Log       LogConfig
 }
 
@@ -77,6 +78,28 @@ type Config struct {
 type AppConfig struct {
 	Name string
 	Env  Environment
+
+	// URL is the public base address clients reach this application at. It is
+	// used to build links in outbound email.
+	//
+	// It cannot be derived from an incoming request: the Host header is
+	// attacker-controlled, and trusting it lets someone send your users a
+	// password-reset link pointing at their own server. The correct base URL is
+	// configuration, not input.
+	URL string
+}
+
+// MailConfig controls outbound email.
+type MailConfig struct {
+	// From is the envelope sender address.
+	From string
+
+	// VerificationTTL bounds how long an email-verification link works.
+	//
+	// 24 hours is the usual choice: long enough that a user who reads mail the
+	// next morning is not annoyed, short enough that a link forwarded or left
+	// in an old inbox stops being an account-takeover vector.
+	VerificationTTL time.Duration
 }
 
 // ServerConfig bounds every phase of an HTTP request's lifetime.
@@ -268,6 +291,9 @@ func Load() (*Config, error) {
 	authBurst, err := getInt("RATE_LIMIT_AUTH_BURST", 5)
 	collect(err)
 
+	verificationTTL, err := getDuration("EMAIL_VERIFICATION_TTL", 24*time.Hour)
+	collect(err)
+
 	corsCredentials, err := getBool("CORS_ALLOW_CREDENTIALS", false)
 	collect(err)
 	corsMaxAge, err := getInt("CORS_MAX_AGE", 300)
@@ -286,6 +312,7 @@ func Load() (*Config, error) {
 		App: AppConfig{
 			Name: getString("APP_NAME", "backend"),
 			Env:  env,
+			URL:  strings.TrimRight(getString("APP_URL", "http://localhost:8080"), "/"),
 		},
 		Server: ServerConfig{
 			Host:            getString("SERVER_HOST", "0.0.0.0"),
@@ -326,6 +353,10 @@ func Load() (*Config, error) {
 			Burst:                 rateBurst,
 			AuthRequestsPerSecond: authRPS,
 			AuthBurst:             authBurst,
+		},
+		Mail: MailConfig{
+			From:            getString("MAIL_FROM", "no-reply@localhost"),
+			VerificationTTL: verificationTTL,
 		},
 		Log: LogConfig{
 			Level:  getString("LOG_LEVEL", "info"),
@@ -398,6 +429,16 @@ func (c *Config) validate() []error {
 			"JWT_ACCESS_TTL must be shorter than JWT_REFRESH_TTL; otherwise the refresh token is pointless"))
 	}
 
+	if c.App.URL == "" {
+		problems = append(problems, errors.New("APP_URL is required; it builds the links in outbound email"))
+	}
+	if c.Mail.From == "" {
+		problems = append(problems, errors.New("MAIL_FROM is required"))
+	}
+	if c.Mail.VerificationTTL <= 0 {
+		problems = append(problems, errors.New("EMAIL_VERIFICATION_TTL must be positive"))
+	}
+
 	if c.RateLimit.Enabled {
 		if c.RateLimit.RequestsPerSecond <= 0 || c.RateLimit.AuthRequestsPerSecond <= 0 {
 			problems = append(problems, errors.New("RATE_LIMIT_RPS and RATE_LIMIT_AUTH_RPS must be positive"))
@@ -424,6 +465,11 @@ func (c *Config) validate() []error {
 		if c.Database.SSLMode == "disable" {
 			problems = append(problems, errors.New(
 				"DB_SSLMODE must not be 'disable' in production; use 'require' or 'verify-full'"))
+		}
+		if strings.Contains(c.App.URL, "localhost") || strings.Contains(c.App.URL, "127.0.0.1") {
+			problems = append(problems, fmt.Errorf(
+				"APP_URL must be the real public address in production, got %q; "+
+					"otherwise every verification email links to the server's own loopback", c.App.URL))
 		}
 		if len(c.CORS.AllowedOrigins) == 1 && c.CORS.AllowedOrigins[0] == "*" {
 			problems = append(problems, errors.New(

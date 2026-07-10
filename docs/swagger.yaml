@@ -111,6 +111,13 @@ components:
       - lastName
       - password
       type: object
+    request.ResendVerification:
+      properties:
+        email:
+          type: string
+      required:
+      - email
+      type: object
     request.UpdateProfile:
       properties:
         firstName:
@@ -124,6 +131,19 @@ components:
       required:
       - firstName
       - lastName
+      type: object
+    request.VerifyEmail:
+      properties:
+        token:
+          description: |-
+            32 random bytes, base64url-unpadded, is always 43 characters. The bounds
+            reject an obviously malformed value before it reaches the database, but
+            they are not a security control: the token's 256 bits of entropy are.
+          maxLength: 64
+          minLength: 40
+          type: string
+      required:
+      - token
       type: object
     response.Auth:
       properties:
@@ -557,6 +577,129 @@ paths:
                 $ref: '#/components/schemas/response.Envelope'
           description: RATE_LIMITED
       summary: Register a new account
+      tags:
+      - auth
+  /api/v1/auth/resend-verification:
+    post:
+      description: |-
+        Always returns 200, whether or not the address has an account and
+        whether or not it is already verified. Reporting the difference would
+        let an attacker enumerate your users.
+        Heavily rate limited, so it cannot be used as a mail cannon.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/request.ResendVerification'
+                description: Email address
+                summary: body
+        description: Email address
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response.Envelope'
+          description: OK
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response.Envelope'
+          description: VALIDATION_FAILED
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response.Envelope'
+          description: RATE_LIMITED
+      summary: Resend the verification email
+      tags:
+      - auth
+  /api/v1/auth/verify-email:
+    post:
+      description: |-
+        Redeems the single-use token from the verification email.
+        The token is consumed on success, so the link works exactly once.
+        An unknown, expired and already-used token all return the same error,
+        so a token guesser learns nothing from the response.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/request.VerifyEmail'
+                description: Verification token
+                summary: body
+        description: Verification token
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/data'
+                properties:
+                  data:
+                    description: Data carries the payload on success, and is null
+                      on failure.
+                  errors:
+                    description: |-
+                      Errors carries per-field validation failures, and is null otherwise.
+                      This is the only error detail ever echoed back verbatim.
+                    items:
+                      $ref: '#/components/schemas/apperrors.FieldError'
+                    type: array
+                    uniqueItems: false
+                  message:
+                    description: |-
+                      Message is human-readable and safe to display. It is not stable; do not
+                      branch on it.
+                    type: string
+                  meta:
+                    additionalProperties: {}
+                    description: |-
+                      Meta is an escape hatch for endpoint-specific extras that do not deserve
+                      a top-level field.
+                    type: object
+                  pagination:
+                    $ref: '#/components/schemas/response.Pagination'
+                  requestId:
+                    description: |-
+                      RequestID ties this response to the server logs. When a user reports a
+                      bug, this string finds the exact request.
+                    type: string
+                  success:
+                    description: |-
+                      Success is the single field a client should branch on. It is redundant
+                      with the HTTP status code on purpose: some proxies and SDKs swallow the
+                      status, and a body that says success=false is impossible to misread.
+                    type: boolean
+                  timestamp:
+                    description: |-
+                      Timestamp is the server's UTC clock at the moment of the response. Useful
+                      for diagnosing client clock skew, which breaks token expiry checks.
+                    type: string
+                type: object
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response.Envelope'
+          description: VERIFICATION_TOKEN_INVALID
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response.Envelope'
+          description: VALIDATION_FAILED
+      summary: Verify an email address
       tags:
       - auth
   /api/v1/profile:

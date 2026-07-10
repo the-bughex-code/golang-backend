@@ -409,6 +409,61 @@ application. When it is not — banking, emergency lockout — shrink the TTL to
 
 ---
 
+## 6a. Email verification
+
+Registration creates the account, grants the default role, and **then** — after
+the transaction commits — sends the verification email.
+
+That ordering is deliberate in both directions. Sending inside the transaction
+would let a slow mail server hold a database transaction, and its locks, open;
+it would also deliver a link to a token that a commit failure then erased.
+And a mail failure does **not** roll back the signup: the user can always press
+"resend", but they cannot ask for their account back.
+
+The token is 256 random bits, stored as a SHA-256 hash — the same machinery as
+a refresh token, sharing `GenerateOpaqueToken`. Issuing a new one invalidates
+every older one, so "resend" three times leaves one live link, not three.
+
+### The link is a POST target, not a GET
+
+The email links to your **frontend**, which reads `?token=` and POSTs it to
+`/api/v1/auth/verify-email`.
+
+It must not link to a `GET` endpoint that verifies on visit. Corporate mail
+scanners, link-preview bots and antivirus proxies fetch every URL in an incoming
+email before the human ever sees it. A `GET` that consumes a single-use token is
+therefore consumed by a robot, and your user clicks a dead link. This is a real
+and very common bug.
+
+**A GET must never change state.**
+
+### Redeeming is atomic in SQL, not in Go
+
+```sql
+UPDATE email_verification_tokens SET used_at = $2 WHERE id = $1 AND used_at IS NULL
+```
+
+`AND used_at IS NULL` is the concurrency guard. Two requests redeeming the same
+token at once both run this statement; exactly one updates a row, and the other
+sees `RowsAffected() == 0` and is told the token is invalid. Checking
+`if token.UsedAt == nil` in Go first would be a check-then-act race, and a
+single-use token would be usable twice.
+
+`tests/integration_test.go` fires eight goroutines at one token against a real
+PostgreSQL and asserts exactly one winner. A fake could not prove this.
+
+### What is deliberately not revealed
+
+`POST /auth/resend-verification` returns 200 for an unknown address, for an
+already-verified address, and for a genuine resend. Reporting the difference
+would turn it into a free oracle for enumerating your users. The strict `/auth/*`
+rate limiter is what stops it being used as a mail cannon against a third party.
+
+Likewise `POST /auth/verify-email` returns the same `VERIFICATION_TOKEN_INVALID`
+for a token that never existed, one that expired, and one already used.
+
+---
+
 ## 7. Authorization: permissions, not roles
 
 Endpoints assert the **capability** they need:
@@ -485,7 +540,9 @@ project pays that price in exactly one place — the repository — and nowhere 
 | gRPC / protobuf | This is a REST API for a Flutter client. `protoc` would compile nothing. | Service-to-service calls where JSON overhead matters. |
 | Redis | The rate limiter's counters live in one process's memory. | When you run more than one replica — see below. |
 | `sqlc` | Raw SQL teaches you what the database is doing. | Once you are comfortable with SQL and want compile-time query checking. |
-| Email verification | The column and the model method exist; the sending does not. | Before you allow password reset. |
+| Real email delivery | `LogMailer` writes each message to the log, so development needs no SMTP and cannot mail a stranger. | Replace one line in `main.go` with an SMTP or Postmark implementation of `services.Mailer`. |
+| Password reset | Depends on email verification, which now exists. | Next. It is the same token machinery with a different table. |
+| Gating unverified accounts | Login still works before verification, and `emailVerifiedAt` is exposed so a client can prompt. | When a feature must be verified-only: add `emailVerified` to the JWT claims and a `RequireVerifiedEmail` middleware. |
 
 ### Known limitations, honestly
 

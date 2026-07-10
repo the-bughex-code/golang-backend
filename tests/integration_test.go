@@ -31,6 +31,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -451,6 +452,190 @@ func TestRefreshTokens_CascadeOnUserHardDelete(t *testing.T) {
 
 	_, err = tokens.GetByHash(ctx, "cascade-test-hash")
 	assert.True(t, apperrors.IsKind(err, apperrors.KindNotFound), "ON DELETE CASCADE must have removed it")
+}
+
+// ---------------------------------------------------------------------------
+// Email verification tokens
+// ---------------------------------------------------------------------------
+
+func newVerificationToken(userID uuid.UUID, hash string, expiresAt time.Time) *models.EmailVerificationToken {
+	return &models.EmailVerificationToken{
+		ID:        uuid.Must(uuid.NewV7()),
+		UserID:    userID,
+		TokenHash: hash,
+		ExpiresAt: expiresAt,
+	}
+}
+
+func TestVerificationTokens_CreateAndFetch(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	users := repositories.NewUserRepository(db)
+	tokens := repositories.NewEmailVerificationTokenRepository(db)
+
+	user := newUser("alice@example.com")
+	require.NoError(t, users.Create(ctx, user))
+
+	tok := newVerificationToken(user.ID, "hash-a", time.Now().Add(24*time.Hour))
+	require.NoError(t, tokens.Create(ctx, tok))
+	assert.False(t, tok.CreatedAt.IsZero(), "created_at must come back via RETURNING")
+
+	got, err := tokens.GetByHash(ctx, "hash-a")
+	require.NoError(t, err)
+	assert.Equal(t, tok.ID, got.ID)
+	assert.Nil(t, got.UsedAt)
+	assert.True(t, got.IsUsable(time.Now()))
+}
+
+// This is the test a fake cannot write honestly.
+//
+// MarkUsed carries `AND used_at IS NULL`. Two goroutines redeem the same token
+// at the same instant against a real PostgreSQL; exactly one must win. Without
+// that clause both would "succeed", and a single-use token would have been used
+// twice.
+func TestVerificationTokens_MarkUsedIsAtomicUnderConcurrency(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	users := repositories.NewUserRepository(db)
+	tokens := repositories.NewEmailVerificationTokenRepository(db)
+
+	user := newUser("alice@example.com")
+	require.NoError(t, users.Create(ctx, user))
+
+	tok := newVerificationToken(user.ID, "race-hash", time.Now().Add(time.Hour))
+	require.NoError(t, tokens.Create(ctx, tok))
+
+	const racers = 8
+	var (
+		wg      sync.WaitGroup
+		mu      sync.Mutex
+		winners int
+		losers  int
+	)
+	start := make(chan struct{})
+
+	for range racers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start // release them all at once
+			err := tokens.MarkUsed(ctx, tok.ID, time.Now())
+
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case err == nil:
+				winners++
+			case apperrors.IsKind(err, apperrors.KindNotFound):
+				losers++
+			default:
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	assert.Equal(t, 1, winners, "exactly one caller may consume the token")
+	assert.Equal(t, racers-1, losers, "everyone else must be told it is already used")
+
+	got, err := tokens.GetByHash(ctx, "race-hash")
+	require.NoError(t, err)
+	require.NotNil(t, got.UsedAt)
+	assert.False(t, got.IsUsable(time.Now()))
+}
+
+// Issuing a new token must kill every older one, so "resend" three times does
+// not leave three live links into the account.
+func TestVerificationTokens_InvalidateAllForUser(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	users := repositories.NewUserRepository(db)
+	tokens := repositories.NewEmailVerificationTokenRepository(db)
+
+	user := newUser("alice@example.com")
+	require.NoError(t, users.Create(ctx, user))
+
+	for i := range 3 {
+		require.NoError(t, tokens.Create(ctx,
+			newVerificationToken(user.ID, fmt.Sprintf("hash-%d", i), time.Now().Add(time.Hour))))
+	}
+
+	require.NoError(t, tokens.InvalidateAllForUser(ctx, user.ID, time.Now()))
+
+	for i := range 3 {
+		got, err := tokens.GetByHash(ctx, fmt.Sprintf("hash-%d", i))
+		require.NoError(t, err)
+		assert.NotNil(t, got.UsedAt, "token %d must be invalidated", i)
+	}
+}
+
+// Invalidating twice must not overwrite the original timestamp: `used_at IS
+// NULL` in the UPDATE preserves the audit trail of when the link actually died.
+func TestVerificationTokens_InvalidateIsIdempotent(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	users := repositories.NewUserRepository(db)
+	tokens := repositories.NewEmailVerificationTokenRepository(db)
+
+	user := newUser("alice@example.com")
+	require.NoError(t, users.Create(ctx, user))
+	require.NoError(t, tokens.Create(ctx, newVerificationToken(user.ID, "h", time.Now().Add(time.Hour))))
+
+	first := time.Now()
+	require.NoError(t, tokens.InvalidateAllForUser(ctx, user.ID, first))
+	got1, err := tokens.GetByHash(ctx, "h")
+	require.NoError(t, err)
+	require.NotNil(t, got1.UsedAt)
+
+	require.NoError(t, tokens.InvalidateAllForUser(ctx, user.ID, first.Add(time.Hour)))
+	got2, err := tokens.GetByHash(ctx, "h")
+	require.NoError(t, err)
+	assert.Equal(t, got1.UsedAt.UnixMicro(), got2.UsedAt.UnixMicro(), "the original timestamp must survive")
+}
+
+func TestVerificationTokens_CascadeOnUserDelete(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	users := repositories.NewUserRepository(db)
+	tokens := repositories.NewEmailVerificationTokenRepository(db)
+
+	user := newUser("alice@example.com")
+	require.NoError(t, users.Create(ctx, user))
+	require.NoError(t, tokens.Create(ctx, newVerificationToken(user.ID, "cascade", time.Now().Add(time.Hour))))
+
+	_, err := db.Pool().Exec(ctx, `DELETE FROM users WHERE id = $1`, user.ID)
+	require.NoError(t, err)
+
+	_, err = tokens.GetByHash(ctx, "cascade")
+	assert.True(t, apperrors.IsKind(err, apperrors.KindNotFound), "ON DELETE CASCADE must have removed it")
+}
+
+// MarkEmailVerified was dead code until this feature used it. Now it is pinned.
+func TestUserRepository_MarkEmailVerified(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	repo := repositories.NewUserRepository(db)
+
+	user := newUser("alice@example.com")
+	require.NoError(t, repo.Create(ctx, user))
+
+	before, err := repo.GetByID(ctx, user.ID)
+	require.NoError(t, err)
+	require.False(t, before.IsEmailVerified())
+
+	at := time.Now().UTC().Truncate(time.Microsecond) // Postgres stores microseconds
+	require.NoError(t, repo.MarkEmailVerified(ctx, user.ID, at))
+
+	after, err := repo.GetByID(ctx, user.ID)
+	require.NoError(t, err)
+	require.True(t, after.IsEmailVerified())
+	assert.Equal(t, at.UnixMicro(), after.EmailVerifiedAt.UnixMicro())
+
+	// A soft-deleted user cannot be verified: the UPDATE matches no live row.
+	require.NoError(t, repo.SoftDelete(ctx, user.ID))
+	err = repo.MarkEmailVerified(ctx, user.ID, at)
+	assert.True(t, apperrors.IsKind(err, apperrors.KindNotFound))
 }
 
 // Pagination must be stable. Without `id` as a tiebreaker in ORDER BY, two rows

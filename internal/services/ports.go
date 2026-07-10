@@ -75,6 +75,45 @@ type RefreshTokenStore interface {
 	RevokeAllForUser(ctx context.Context, userID uuid.UUID) error
 }
 
+// VerificationUserStore is what VerificationService needs from user storage.
+//
+// Note it cannot create a user, list users, or change a password. Verifying an
+// address is not any of those things, and the compiler now enforces that.
+type VerificationUserStore interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	MarkEmailVerified(ctx context.Context, id uuid.UUID, at time.Time) error
+}
+
+// VerificationTokenStore persists email-verification token hashes.
+type VerificationTokenStore interface {
+	Create(ctx context.Context, t *models.EmailVerificationToken) error
+	GetByHash(ctx context.Context, hash string) (*models.EmailVerificationToken, error)
+	MarkUsed(ctx context.Context, id uuid.UUID, at time.Time) error
+	InvalidateAllForUser(ctx context.Context, userID uuid.UUID, at time.Time) error
+}
+
+// Mailer sends one email.
+//
+// The signature takes plain strings rather than a shared Message struct, so
+// that internal/mailer does not have to import this package to satisfy it. The
+// dependency arrow points only one way: services declares what it needs, and
+// remains ignorant of SMTP, of Postmark, and of everything else.
+type Mailer interface {
+	Send(ctx context.Context, to, subject, textBody string) error
+}
+
+// VerificationSender is the single method AuthService needs from
+// VerificationService: "send this new user their verification email".
+//
+// Declaring a one-method interface here, rather than injecting the whole
+// *VerificationService, means AuthService cannot accidentally call Verify() or
+// Resend() — neither of which is registration's business. It also breaks what
+// would otherwise be a circular dependency between the two services.
+type VerificationSender interface {
+	SendFor(ctx context.Context, user *models.User) error
+}
+
 // TxRunner runs a function inside a database transaction.
 //
 // The service layer needs atomicity — "create the user AND grant the role, or

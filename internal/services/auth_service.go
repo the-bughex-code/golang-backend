@@ -36,6 +36,13 @@ type AuthService struct {
 	tx           TxRunner
 	clock        Clock
 
+	// verification sends the confirmation email after a successful signup.
+	//
+	// A one-method interface, so registration cannot reach into the rest of
+	// VerificationService — and so the two services never import each other,
+	// which they would otherwise have to do in a circle.
+	verification VerificationSender
+
 	// defaultRole is granted to every new account.
 	defaultRole string
 }
@@ -52,6 +59,7 @@ func NewAuthService(
 	tokens *TokenService,
 	tx TxRunner,
 	clock Clock,
+	verification VerificationSender,
 ) *AuthService {
 	return &AuthService{
 		users:        users,
@@ -60,6 +68,7 @@ func NewAuthService(
 		tokens:       tokens,
 		tx:           tx,
 		clock:        clock,
+		verification: verification,
 		defaultRole:  models.RoleUser,
 	}
 }
@@ -147,8 +156,25 @@ func (s *AuthService) Register(ctx context.Context, email, password, firstName, 
 		return nil, err
 	}
 
-	logger.FromContext(ctx).Info("user registered",
-		slog.String("user_id", user.ID.String()))
+	log := logger.FromContext(ctx)
+	log.Info("user registered", slog.String("user_id", user.ID.String()))
+
+	// Send the verification email AFTER the transaction has committed, and do
+	// not fail registration if it cannot be sent.
+	//
+	// The two failure modes are not equal. If the account exists and the email
+	// does not arrive, the user presses "resend". If we roll the account back
+	// because a mail server was briefly down, the user's signup silently
+	// vanished and they have no idea why. The second is much worse.
+	//
+	// This is also why the email is not sent inside the transaction: a slow mail
+	// server would hold a database transaction — and its locks — open for the
+	// duration.
+	if err := s.verification.SendFor(ctx, user); err != nil {
+		log.Warn("could not send verification email; the account was still created",
+			slog.String("user_id", user.ID.String()),
+			slog.String("error", err.Error()))
+	}
 
 	return user, nil
 }
@@ -215,7 +241,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Token
 // This turns a silent, permanent compromise into a visible, bounded one.
 func (s *AuthService) Refresh(ctx context.Context, rawToken string) (*TokenPair, *models.User, error) {
 	log := logger.FromContext(ctx)
-	hash := HashRefreshToken(rawToken)
+	hash := HashOpaqueToken(rawToken)
 
 	stored, err := s.refreshStore.GetByHash(ctx, hash)
 	if err != nil {
@@ -287,7 +313,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawToken string) (*TokenPair,
 // let an attacker probe which tokens are live, and there is nothing useful a
 // client can do with the distinction anyway.
 func (s *AuthService) Logout(ctx context.Context, rawToken string) error {
-	stored, err := s.refreshStore.GetByHash(ctx, HashRefreshToken(rawToken))
+	stored, err := s.refreshStore.GetByHash(ctx, HashOpaqueToken(rawToken))
 	if err != nil {
 		if apperrors.IsKind(err, apperrors.KindNotFound) {
 			return nil
@@ -348,7 +374,7 @@ func (s *AuthService) issueTokenPair(ctx context.Context, user *models.User) (*T
 		return nil, err
 	}
 
-	rawRefresh, refreshHash, err := GenerateRefreshToken()
+	rawRefresh, refreshHash, err := GenerateOpaqueToken()
 	if err != nil {
 		return nil, err
 	}

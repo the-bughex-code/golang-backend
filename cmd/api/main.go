@@ -71,6 +71,7 @@ import (
 	"github.com/the-bughex-code/golang-backend/internal/database"
 	"github.com/the-bughex-code/golang-backend/internal/handlers"
 	"github.com/the-bughex-code/golang-backend/internal/logger"
+	"github.com/the-bughex-code/golang-backend/internal/mailer"
 	"github.com/the-bughex-code/golang-backend/internal/repositories"
 	"github.com/the-bughex-code/golang-backend/internal/routes"
 	"github.com/the-bughex-code/golang-backend/internal/services"
@@ -142,10 +143,22 @@ func run() error {
 	// ── Wiring: repositories ──────────────────────────────────────────────
 	// They depend on the database, and on nothing else.
 	var (
-		userRepo    = repositories.NewUserRepository(db)
-		roleRepo    = repositories.NewRoleRepository(db)
-		refreshRepo = repositories.NewRefreshTokenRepository(db)
+		userRepo         = repositories.NewUserRepository(db)
+		roleRepo         = repositories.NewRoleRepository(db)
+		refreshRepo      = repositories.NewRefreshTokenRepository(db)
+		verificationRepo = repositories.NewEmailVerificationTokenRepository(db)
 	)
+
+	// ── Wiring: outbound adapters ─────────────────────────────────────────
+	//
+	// LogMailer writes each email to the log instead of sending it, so
+	// development needs no SMTP server and cannot accidentally mail a real
+	// person. It satisfies services.Mailer.
+	//
+	// To send real mail, replace this ONE line with an SMTP or Postmark
+	// implementation. Nothing above it changes. That is the whole point of
+	// declaring the interface in the consumer.
+	mail := mailer.NewLogMailer(log, cfg.Mail.From)
 
 	// ── Wiring: services ──────────────────────────────────────────────────
 	// They depend on repository INTERFACES that they themselves declare, and on
@@ -156,7 +169,16 @@ func run() error {
 	var (
 		clock    = services.SystemClock
 		tokenSvc = services.NewTokenService(cfg.JWT, clock)
-		authSvc  = services.NewAuthService(userRepo, roleRepo, refreshRepo, tokenSvc, db, clock)
+
+		verificationSvc = services.NewVerificationService(
+			userRepo, verificationRepo, mail, db, clock, cfg.App.URL, cfg.Mail.VerificationTTL)
+
+		// verificationSvc is passed to AuthService as a VerificationSender — a
+		// one-method interface. AuthService can therefore call SendFor and
+		// nothing else, and the compiler enforces it.
+		authSvc = services.NewAuthService(
+			userRepo, roleRepo, refreshRepo, tokenSvc, db, clock, verificationSvc)
+
 		userSvc  = services.NewUserService(userRepo, roleRepo)
 		validate = validators.New()
 	)
@@ -165,7 +187,7 @@ func run() error {
 	// They depend on services. They know nothing about SQL.
 	var (
 		healthHandler  = handlers.NewHealthHandler(db, version)
-		authHandler    = handlers.NewAuthHandler(authSvc, validate)
+		authHandler    = handlers.NewAuthHandler(authSvc, verificationSvc, validate)
 		profileHandler = handlers.NewProfileHandler(userSvc, authSvc, validate)
 		userHandler    = handlers.NewUserHandler(userSvc, validate)
 	)

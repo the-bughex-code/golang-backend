@@ -205,45 +205,51 @@ func (s *TokenService) ParseAccessToken(tokenString string) (*Claims, error) {
 }
 
 // ---------------------------------------------------------------------------
-// Refresh tokens
+// Opaque tokens
 //
-// A refresh token is NOT a JWT. It is 256 bits of randomness with no structure
-// and no claims. It carries no information, so there is nothing to leak, and
-// it is meaningful only because a matching row exists in the database — which
-// is precisely what makes it revocable.
+// An opaque token is NOT a JWT. It is 256 bits of randomness with no structure
+// and no claims. It carries no information, so there is nothing to leak, and it
+// is meaningful only because a matching row exists in the database — which is
+// precisely what makes it revocable.
+//
+// Refresh tokens and email-verification tokens are both opaque tokens. They
+// differ only in which table stores the hash and how long it lives, so they
+// share one generator. Two copies of this code would eventually drift, and the
+// one nobody looked at would be the one using math/rand.
 // ---------------------------------------------------------------------------
 
-// refreshTokenBytes is 32 bytes = 256 bits of entropy. Guessing one is as hard
+// opaqueTokenBytes is 32 bytes = 256 bits of entropy. Guessing one is as hard
 // as guessing an AES-256 key.
-const refreshTokenBytes = 32
+const opaqueTokenBytes = 32
 
-// GenerateRefreshToken returns (rawToken, tokenHash).
+// GenerateOpaqueToken returns (rawToken, tokenHash).
 //
-// The raw token is sent to the client exactly once and never stored. The hash
-// is stored and never sent. Neither can be derived from the other in the wrong
-// direction.
-func GenerateRefreshToken() (raw, hash string, err error) {
-	b := make([]byte, refreshTokenBytes)
+// The raw token is handed out exactly once — in a response body, or in a link
+// inside an email — and never stored. The hash is stored and never handed out.
+// Neither can be derived from the other in the wrong direction.
+func GenerateOpaqueToken() (raw, hash string, err error) {
+	b := make([]byte, opaqueTokenBytes)
 
 	// crypto/rand, never math/rand. math/rand is a deterministic PRNG: seed it
 	// the same way and it produces the same "random" tokens. crypto/rand reads
 	// the operating system's CSPRNG.
 	if _, err := rand.Read(b); err != nil {
-		return "", "", apperrors.Internal(fmt.Errorf("services: generating refresh token: %w", err))
+		return "", "", apperrors.Internal(fmt.Errorf("services: generating opaque token: %w", err))
 	}
 
-	// URL-safe, unpadded: the token travels in JSON and sometimes in headers.
+	// URL-safe, unpadded: the token travels in JSON, in headers, and in the
+	// query string of a link inside an email.
 	raw = base64.RawURLEncoding.EncodeToString(b)
-	return raw, HashRefreshToken(raw), nil
+	return raw, HashOpaqueToken(raw), nil
 }
 
-// HashRefreshToken returns the SHA-256 hex digest used as the database key.
+// HashOpaqueToken returns the SHA-256 hex digest used as the database key.
 //
 // SHA-256, not bcrypt. bcrypt is deliberately slow to defeat dictionary attacks
-// on LOW-entropy secrets (human passwords). A refresh token has 256 bits of
-// entropy: there is no dictionary, and a slow hash would only mean every API
-// refresh costs 300ms of CPU. Fast is correct here.
-func HashRefreshToken(raw string) string {
+// on LOW-entropy secrets (human passwords). An opaque token has 256 bits of
+// entropy: there is no dictionary, and a slow hash would only mean every token
+// exchange costs 300ms of CPU. Fast is correct here.
+func HashOpaqueToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
 }

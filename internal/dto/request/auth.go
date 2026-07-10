@@ -85,6 +85,25 @@ type Logout struct {
 	RefreshToken string `json:"refreshToken" validate:"required"`
 }
 
+// VerifyEmail redeems a verification token.
+type VerifyEmail struct {
+	// 32 random bytes, base64url-unpadded, is always 43 characters. The bounds
+	// reject an obviously malformed value before it reaches the database, but
+	// they are not a security control: the token's 256 bits of entropy are.
+	Token string `json:"token" validate:"required,min=40,max=64"`
+}
+
+// ResendVerification asks for a fresh verification email.
+type ResendVerification struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// Normalize trims and lowercases, so a resend for " Alice@Example.com " finds
+// the account registered as "alice@example.com".
+func (r *ResendVerification) Normalize() {
+	r.Email = normalizeEmail(r.Email)
+}
+
 // ChangePassword updates the caller's own password.
 type ChangePassword struct {
 	// Requiring the current password stops an attacker who has stolen an

@@ -143,6 +143,11 @@ internal/              Private to this module. The Go COMPILER refuses to let an
                        the result. No logic. If you write an `if` that encodes a
                        business rule here, it belongs in a service.
 
+  mailer/              Sends outbound email. Exists so that `services` never
+                       imports an SMTP client. In development LogMailer writes
+                       each message to the log instead of sending it, so you need
+                       no mail server and cannot email a stranger by accident.
+
   middlewares/         Request id, logging, panic recovery, security headers,
                        CORS, rate limiting, authentication, permission checks.
 
@@ -248,6 +253,8 @@ endpoint enumerating every route and error code is a gift to an attacker).
 | `POST` | `/auth/login` | Returns an access + refresh token pair |
 | `POST` | `/auth/refresh` | Rotates the refresh token. Unauthenticated by design |
 | `POST` | `/auth/logout` | Revokes one refresh token |
+| `POST` | `/auth/verify-email` | Redeems the single-use token from the email |
+| `POST` | `/auth/resend-verification` | Always 200, so it cannot enumerate users |
 
 ### Authenticated
 
@@ -323,6 +330,10 @@ Implemented, and verified by tests:
 - **Refresh token rotation with reuse detection.** Replaying a consumed token
   revokes every session for that user.
 - **Refresh tokens are stored as SHA-256 hashes**, never in plaintext.
+- **Email verification** with single-use, expiring tokens. Redemption is atomic
+  in SQL (`AND used_at IS NULL`), proven by firing eight concurrent goroutines at
+  one token and asserting exactly one winner. Issuing a new link kills the old
+  ones. `resend-verification` always answers 200, so it cannot enumerate users.
 - **RBAC by permission**, not by role, so adding a role is a database row rather
   than a code change.
 - **SQL injection is structurally impossible.** Bind parameters mean data never

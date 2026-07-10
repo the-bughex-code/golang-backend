@@ -9,19 +9,25 @@ import (
 	"github.com/the-bughex-code/golang-backend/internal/validators"
 )
 
-// AuthHandler exposes registration, login, refresh and logout.
+// AuthHandler exposes registration, login, refresh, logout and email
+// verification.
 //
 // Its dependencies are injected, not constructed. That means a test can hand it
 // a stubbed AuthService, and main.go decides — in one place — what the real one
 // talks to.
 type AuthHandler struct {
-	auth      *services.AuthService
-	validator *validators.Validator
+	auth         *services.AuthService
+	verification *services.VerificationService
+	validator    *validators.Validator
 }
 
-// NewAuthHandler wires the authentication routes to their service.
-func NewAuthHandler(auth *services.AuthService, v *validators.Validator) *AuthHandler {
-	return &AuthHandler{auth: auth, validator: v}
+// NewAuthHandler wires the authentication routes to their services.
+func NewAuthHandler(
+	auth *services.AuthService,
+	verification *services.VerificationService,
+	v *validators.Validator,
+) *AuthHandler {
+	return &AuthHandler{auth: auth, verification: verification, validator: v}
 }
 
 // Register creates an account and immediately signs the user in.
@@ -173,4 +179,77 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.OK(w, r, "Signed out successfully", nil)
+}
+
+// VerifyEmail confirms ownership of an email address.
+//
+// POST /api/v1/auth/verify-email
+//
+// This is a POST, not a GET, even though the user arrives from a link. See
+// services.verificationEmailBody for why: mail scanners fetch every URL in an
+// incoming email, and a GET that consumes a single-use token gets consumed by a
+// robot before the human ever clicks.
+//
+//	@Summary		Verify an email address
+//	@Description	Redeems the single-use token from the verification email.
+//	@Description	The token is consumed on success, so the link works exactly once.
+//	@Description	An unknown, expired and already-used token all return the same error,
+//	@Description	so a token guesser learns nothing from the response.
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		request.VerifyEmail	true	"Verification token"
+//	@Success		200		{object}	response.Envelope{data=response.User}
+//	@Failure		400		{object}	response.Envelope	"VERIFICATION_TOKEN_INVALID"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED"
+//	@Router			/api/v1/auth/verify-email [post]
+func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var req request.VerifyEmail
+	if err := bind(w, r, h.validator, &req); err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	user, err := h.verification.Verify(r.Context(), req.Token)
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	response.OK(w, r, "Email verified successfully", response.NewUser(user))
+}
+
+// ResendVerification issues a fresh verification email.
+//
+// POST /api/v1/auth/resend-verification
+//
+// The response is identical in every case, deliberately. The handler cannot leak
+// what it does not know: the service returns nil for an unknown address.
+//
+//	@Summary		Resend the verification email
+//	@Description	Always returns 200, whether or not the address has an account and
+//	@Description	whether or not it is already verified. Reporting the difference would
+//	@Description	let an attacker enumerate your users.
+//	@Description	Heavily rate limited, so it cannot be used as a mail cannon.
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		request.ResendVerification	true	"Email address"
+//	@Success		200		{object}	response.Envelope
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED"
+//	@Failure		429		{object}	response.Envelope	"RATE_LIMITED"
+//	@Router			/api/v1/auth/resend-verification [post]
+func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	var req request.ResendVerification
+	if err := bind(w, r, h.validator, &req); err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	if err := h.verification.Resend(r.Context(), req.Email); err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	response.OK(w, r, "If that address needs verifying, we have sent a new link.", nil)
 }

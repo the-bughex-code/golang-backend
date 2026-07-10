@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -18,13 +19,25 @@ import (
 // This is the composition root from main.go, in miniature — which is a good
 // sign: if wiring for a test were harder than wiring for production, the
 // dependencies would be wrong.
-func newTestAuthService(t *testing.T) (*AuthService, *fakeUserStore, *fakeRoleStore, *fakeRefreshStore, *fakeTx) {
+type authFixture struct {
+	auth    *AuthService
+	users   *fakeUserStore
+	roles   *fakeRoleStore
+	refresh *fakeRefreshStore
+	tx      *fakeTx
+	sender  *fakeVerificationSender
+}
+
+func newTestAuthService(t *testing.T) *authFixture {
 	t.Helper()
 
-	users := newFakeUserStore()
-	roles := newFakeRoleStore()
-	refresh := newFakeRefreshStore()
-	tx := &fakeTx{}
+	f := &authFixture{
+		users:   newFakeUserStore(),
+		roles:   newFakeRoleStore(),
+		refresh: newFakeRefreshStore(),
+		tx:      &fakeTx{},
+		sender:  &fakeVerificationSender{},
+	}
 
 	clock := fixedClock{t: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)}
 	tokens := NewTokenService(config.JWTConfig{
@@ -34,14 +47,16 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserStore, *fakeRoleSt
 		RefreshTTL: 24 * time.Hour,
 	}, clock)
 
-	return NewAuthService(users, roles, refresh, tokens, tx, clock), users, roles, refresh, tx
+	f.auth = NewAuthService(f.users, f.roles, f.refresh, tokens, f.tx, clock, f.sender)
+	return f
 }
 
 const testPassword = "correct-horse-battery-staple"
 
 func TestRegister_Success(t *testing.T) {
 	t.Parallel()
-	auth, _, _, _, tx := newTestAuthService(t)
+	f := newTestAuthService(t)
+	auth, tx := f.auth, f.tx
 
 	user, err := auth.Register(context.Background(), "  Alice@Example.COM ", testPassword, "Alice", "Nguyen")
 	require.NoError(t, err)
@@ -59,11 +74,30 @@ func TestRegister_Success(t *testing.T) {
 	assert.Equal(t, "user", user.Roles[0].Name, "new accounts get the default role")
 
 	assert.Equal(t, 1, tx.calls, "user creation and role assignment must share one transaction")
+	assert.Equal(t, 1, f.sender.count(), "registration must trigger the verification email")
+}
+
+// A mail server being briefly down must not lose the account. The user can
+// always ask for another email; they cannot ask for their signup back.
+func TestRegister_SucceedsEvenWhenTheVerificationEmailFails(t *testing.T) {
+	t.Parallel()
+	f := newTestAuthService(t)
+	f.sender.err = errors.New("smtp: connection refused")
+
+	ctx := context.Background()
+	user, err := f.auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
+
+	require.NoError(t, err, "a mail failure must not roll back registration")
+	require.NotNil(t, user)
+
+	// And the account really is usable.
+	_, _, err = f.auth.Login(ctx, "alice@example.com", testPassword)
+	assert.NoError(t, err)
 }
 
 func TestRegister_DuplicateEmail(t *testing.T) {
 	t.Parallel()
-	auth, _, _, _, _ := newTestAuthService(t)
+	auth := newTestAuthService(t).auth
 	ctx := context.Background()
 
 	_, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -77,7 +111,8 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 
 func TestLogin_Success(t *testing.T) {
 	t.Parallel()
-	auth, _, _, refresh, _ := newTestAuthService(t)
+	f := newTestAuthService(t)
+	auth, refresh := f.auth, f.refresh
 	ctx := context.Background()
 
 	registered, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -97,7 +132,7 @@ func TestLogin_Success(t *testing.T) {
 // account must be indistinguishable to the caller.
 func TestLogin_WrongPasswordAndUnknownUser_AreIndistinguishable(t *testing.T) {
 	t.Parallel()
-	auth, _, _, _, _ := newTestAuthService(t)
+	auth := newTestAuthService(t).auth
 	ctx := context.Background()
 
 	_, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -120,7 +155,8 @@ func TestLogin_WrongPasswordAndUnknownUser_AreIndistinguishable(t *testing.T) {
 
 func TestLogin_DisabledAccount(t *testing.T) {
 	t.Parallel()
-	auth, users, _, _, _ := newTestAuthService(t)
+	f := newTestAuthService(t)
+	auth, users := f.auth, f.users
 	ctx := context.Background()
 
 	user, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -140,7 +176,7 @@ func TestLogin_DisabledAccount(t *testing.T) {
 
 func TestRefresh_RotatesToken(t *testing.T) {
 	t.Parallel()
-	auth, _, _, _, _ := newTestAuthService(t)
+	auth := newTestAuthService(t).auth
 	ctx := context.Background()
 
 	_, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -160,7 +196,8 @@ func TestRefresh_RotatesToken(t *testing.T) {
 // session is destroyed.
 func TestRefresh_ReuseDetection_RevokesEverySession(t *testing.T) {
 	t.Parallel()
-	auth, _, _, refresh, _ := newTestAuthService(t)
+	f := newTestAuthService(t)
+	auth, refresh := f.auth, f.refresh
 	ctx := context.Background()
 
 	user, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -186,7 +223,7 @@ func TestRefresh_ReuseDetection_RevokesEverySession(t *testing.T) {
 
 func TestRefresh_UnknownToken(t *testing.T) {
 	t.Parallel()
-	auth, _, _, _, _ := newTestAuthService(t)
+	auth := newTestAuthService(t).auth
 
 	_, _, err := auth.Refresh(context.Background(), "this-token-was-never-issued")
 	require.Error(t, err)
@@ -195,7 +232,8 @@ func TestRefresh_UnknownToken(t *testing.T) {
 
 func TestLogout_RevokesOnlyThatSession(t *testing.T) {
 	t.Parallel()
-	auth, _, _, refresh, _ := newTestAuthService(t)
+	f := newTestAuthService(t)
+	auth, refresh := f.auth, f.refresh
 	ctx := context.Background()
 
 	user, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -215,14 +253,15 @@ func TestLogout_RevokesOnlyThatSession(t *testing.T) {
 // Reporting "no such token" would let an attacker probe which tokens are live.
 func TestLogout_UnknownTokenIsNotAnError(t *testing.T) {
 	t.Parallel()
-	auth, _, _, _, _ := newTestAuthService(t)
+	auth := newTestAuthService(t).auth
 
 	assert.NoError(t, auth.Logout(context.Background(), "never-issued"))
 }
 
 func TestChangePassword_RevokesAllSessions(t *testing.T) {
 	t.Parallel()
-	auth, _, _, refresh, _ := newTestAuthService(t)
+	f := newTestAuthService(t)
+	auth, refresh := f.auth, f.refresh
 	ctx := context.Background()
 
 	user, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")
@@ -249,7 +288,8 @@ func TestChangePassword_RevokesAllSessions(t *testing.T) {
 
 func TestChangePassword_WrongCurrentPassword(t *testing.T) {
 	t.Parallel()
-	auth, _, _, refresh, _ := newTestAuthService(t)
+	f := newTestAuthService(t)
+	auth, refresh := f.auth, f.refresh
 	ctx := context.Background()
 
 	user, err := auth.Register(ctx, "alice@example.com", testPassword, "Alice", "N")

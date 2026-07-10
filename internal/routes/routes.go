@@ -182,6 +182,12 @@ func New(ctx context.Context, d Dependencies) http.Handler {
 			// body is the credential.
 			r.Post("/refresh", d.Auth.Refresh)
 			r.Post("/logout", d.Auth.Logout)
+
+			// Also unauthenticated: a user who has not verified their address
+			// may not yet have signed in, and the token in the body is itself
+			// the credential. Both sit inside the strict auth rate limiter.
+			r.Post("/verify-email", d.Auth.VerifyEmail)
+			r.Post("/resend-verification", d.Auth.ResendVerification)
 		})
 
 		// ── Authenticated: a valid access token is required ────────────────
