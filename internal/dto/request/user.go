@@ -9,8 +9,8 @@ import "strings"
 // may not grant themselves the admin role. Those fields are absent from the
 // struct, so no request can set them regardless of what JSON it sends.
 type UpdateProfile struct {
-	FirstName string `json:"firstName" validate:"required,min=1,max=100"`
-	LastName  string `json:"lastName"  validate:"required,min=1,max=100"`
+	FirstName string `json:"firstName" validate:"required,min=1,max=100" example:"Alice"`
+	LastName  string `json:"lastName"  validate:"required,min=1,max=100" example:"Nguyen"`
 }
 
 // Normalize trims the name fields, so a submission of "   " is rejected as
@@ -22,7 +22,7 @@ func (u *UpdateProfile) Normalize() {
 
 // AssignRole grants a role to a user. Requires the roles:assign permission.
 type AssignRole struct {
-	RoleName string `json:"roleName" validate:"required,min=1,max=100"`
+	RoleName string `json:"roleName" validate:"required,min=1,max=100" example:"admin"`
 }
 
 // Normalize trims and lowercases the role name to match the seeded values.

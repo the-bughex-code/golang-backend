@@ -63,6 +63,41 @@ func TestEmbeddedSpec_HasContent(t *testing.T) {
 		"without this, Swagger UI shows no Authorize button")
 }
 
+// Swagger UI pre-fills every string field with the literal placeholder "string"
+// when the schema carries no example. A reader then edits the email, leaves
+// `"password": "string"`, and gets a 401 that looks like a broken API.
+//
+// It is not a hypothetical: it happened. Login's password has no `min` rule —
+// deliberately, so a short password cannot be distinguished from a wrong one —
+// so "string" passes validation and fails at bcrypt.
+//
+// Examples turn Try-it-out into something that works on the first click.
+func TestEmbeddedSpec_RequestBodiesCarryExamples(t *testing.T) {
+	t.Parallel()
+
+	var doc struct {
+		Definitions map[string]struct {
+			Properties map[string]struct {
+				Example any `json:"example"`
+			} `json:"properties"`
+		} `json:"definitions"`
+	}
+	require.NoError(t, json.Unmarshal(SwaggerJSON, &doc))
+
+	// The bodies a newcomer types first.
+	for _, name := range []string{"request.Login", "request.Register"} {
+		def, ok := doc.Definitions[name]
+		require.True(t, ok, "%s is missing from the spec", name)
+
+		for field, prop := range def.Properties {
+			assert.NotNil(t, prop.Example,
+				"%s.%s has no example, so Swagger UI will pre-fill it with \"string\"", name, field)
+			assert.NotEqual(t, "string", prop.Example,
+				"%s.%s example must be a usable value, not the placeholder", name, field)
+		}
+	}
+}
+
 // Every authenticated route must be documented as such, or the reference lies
 // about what needs a token.
 func TestEmbeddedSpec_ProtectedRoutesDeclareSecurity(t *testing.T) {

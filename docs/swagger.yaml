@@ -10,6 +10,7 @@ definitions:
   request.AssignRole:
     properties:
       roleName:
+        example: admin
         maxLength: 100
         minLength: 1
         type: string
@@ -22,10 +23,12 @@ definitions:
         description: |-
           Requiring the current password stops an attacker who has stolen an
           access token (say, from a logged XHR) from locking the real owner out.
+        example: correct-horse-battery
         type: string
       newPassword:
         description: nefield ensures the new password actually differs from the old
           one.
+        example: a-different-strong-password
         maxLength: 72
         minLength: 8
         type: string
@@ -36,6 +39,7 @@ definitions:
   request.Login:
     properties:
       email:
+        example: alice@example.com
         type: string
       password:
         description: |-
@@ -43,6 +47,7 @@ definitions:
           least 8 characters" tells an attacker the password was too short to be
           real, and annoys a legitimate user whose password predates the rule.
           Login either matches or it does not.
+        example: correct-horse-battery
         type: string
     required:
     - email
@@ -51,6 +56,7 @@ definitions:
   request.Logout:
     properties:
       refreshToken:
+        example: paste-the-refreshToken-from-login
         type: string
     required:
     - refreshToken
@@ -58,6 +64,7 @@ definitions:
   request.Refresh:
     properties:
       refreshToken:
+        example: paste-the-refreshToken-from-login
         type: string
     required:
     - refreshToken
@@ -65,13 +72,16 @@ definitions:
   request.Register:
     properties:
       email:
+        example: alice@example.com
         maxLength: 254
         type: string
       firstName:
+        example: Alice
         maxLength: 100
         minLength: 1
         type: string
       lastName:
+        example: Nguyen
         maxLength: 100
         minLength: 1
         type: string
@@ -90,6 +100,7 @@ definitions:
           letter and a symbol"). NIST advises against them. They push users toward
           P@ssw0rd1 — predictable to a cracker, hard for a human — while adding
           no meaningful entropy. Length is what matters.
+        example: correct-horse-battery
         maxLength: 72
         minLength: 8
         type: string
@@ -102,6 +113,7 @@ definitions:
   request.ResendVerification:
     properties:
       email:
+        example: alice@example.com
         type: string
     required:
     - email
@@ -109,10 +121,12 @@ definitions:
   request.UpdateProfile:
     properties:
       firstName:
+        example: Alice
         maxLength: 100
         minLength: 1
         type: string
       lastName:
+        example: Nguyen
         maxLength: 100
         minLength: 1
         type: string
@@ -127,6 +141,7 @@ definitions:
           32 random bytes, base64url-unpadded, is always 43 characters. The bounds
           reject an obviously malformed value before it reaches the database, but
           they are not a security control: the token's 256 bits of entropy are.
+        example: paste-the-token-from-the-verification-email
         maxLength: 64
         minLength: 40
         type: string

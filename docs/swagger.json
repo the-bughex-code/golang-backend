@@ -844,7 +844,8 @@
                 "roleName": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1
+                    "minLength": 1,
+                    "example": "admin"
                 }
             }
         },
@@ -857,13 +858,15 @@
             "properties": {
                 "currentPassword": {
                     "description": "Requiring the current password stops an attacker who has stolen an\naccess token (say, from a logged XHR) from locking the real owner out.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "correct-horse-battery"
                 },
                 "newPassword": {
                     "description": "nefield ensures the new password actually differs from the old one.",
                     "type": "string",
                     "maxLength": 72,
-                    "minLength": 8
+                    "minLength": 8,
+                    "example": "a-different-strong-password"
                 }
             }
         },
@@ -875,11 +878,13 @@
             ],
             "properties": {
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "alice@example.com"
                 },
                 "password": {
                     "description": "No min= here. Rejecting a 3-character password at login with \"must be at\nleast 8 characters\" tells an attacker the password was too short to be\nreal, and annoys a legitimate user whose password predates the rule.\nLogin either matches or it does not.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "correct-horse-battery"
                 }
             }
         },
@@ -890,7 +895,8 @@
             ],
             "properties": {
                 "refreshToken": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "paste-the-refreshToken-from-login"
                 }
             }
         },
@@ -901,7 +907,8 @@
             ],
             "properties": {
                 "refreshToken": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "paste-the-refreshToken-from-login"
                 }
             }
         },
@@ -916,23 +923,27 @@
             "properties": {
                 "email": {
                     "type": "string",
-                    "maxLength": 254
+                    "maxLength": 254,
+                    "example": "alice@example.com"
                 },
                 "firstName": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1
+                    "minLength": 1,
+                    "example": "Alice"
                 },
                 "lastName": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1
+                    "minLength": 1,
+                    "example": "Nguyen"
                 },
                 "password": {
                     "description": "Password bounds, and why they are what they are:\n\n  min=8  — NIST SP 800-63B sets 8 as the floor for user-chosen secrets.\n  max=72 — bcrypt hashes at most 72 BYTES. Go's implementation returns\n           an error above that rather than silently truncating (some\n           other languages truncate, which means \"correcthorse...\" and\n           \"correcthorse...extra\" become the same password). Rejecting\n           it here produces a clear message instead of a 500.\n\nDeliberately absent: composition rules (\"must contain an uppercase\nletter and a symbol\"). NIST advises against them. They push users toward\nP@ssw0rd1 — predictable to a cracker, hard for a human — while adding\nno meaningful entropy. Length is what matters.",
                     "type": "string",
                     "maxLength": 72,
-                    "minLength": 8
+                    "minLength": 8,
+                    "example": "correct-horse-battery"
                 }
             }
         },
@@ -943,7 +954,8 @@
             ],
             "properties": {
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "alice@example.com"
                 }
             }
         },
@@ -957,12 +969,14 @@
                 "firstName": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1
+                    "minLength": 1,
+                    "example": "Alice"
                 },
                 "lastName": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1
+                    "minLength": 1,
+                    "example": "Nguyen"
                 }
             }
         },
@@ -976,7 +990,8 @@
                     "description": "32 random bytes, base64url-unpadded, is always 43 characters. The bounds\nreject an obviously malformed value before it reaches the database, but\nthey are not a security control: the token's 256 bits of entropy are.",
                     "type": "string",
                     "maxLength": 64,
-                    "minLength": 40
+                    "minLength": 40,
+                    "example": "paste-the-token-from-the-verification-email"
                 }
             }
         },

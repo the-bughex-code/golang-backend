@@ -26,7 +26,7 @@ func normalizeEmail(s string) string {
 
 // Register creates a new account.
 type Register struct {
-	Email string `json:"email" validate:"required,email,max=254"`
+	Email string `json:"email" validate:"required,email,max=254" example:"alice@example.com"`
 
 	// Password bounds, and why they are what they are:
 	//
@@ -41,10 +41,10 @@ type Register struct {
 	// letter and a symbol"). NIST advises against them. They push users toward
 	// P@ssw0rd1 — predictable to a cracker, hard for a human — while adding
 	// no meaningful entropy. Length is what matters.
-	Password string `json:"password" validate:"required,min=8,max=72"`
+	Password string `json:"password" validate:"required,min=8,max=72" example:"correct-horse-battery"`
 
-	FirstName string `json:"firstName" validate:"required,min=1,max=100"`
-	LastName  string `json:"lastName"  validate:"required,min=1,max=100"`
+	FirstName string `json:"firstName" validate:"required,min=1,max=100" example:"Alice"`
+	LastName  string `json:"lastName"  validate:"required,min=1,max=100" example:"Nguyen"`
 }
 
 // Normalize trims whitespace and lowercases the email.
@@ -60,13 +60,13 @@ func (r *Register) Normalize() {
 
 // Login exchanges credentials for a token pair.
 type Login struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `json:"email" validate:"required,email" example:"alice@example.com"`
 
 	// No min= here. Rejecting a 3-character password at login with "must be at
 	// least 8 characters" tells an attacker the password was too short to be
 	// real, and annoys a legitimate user whose password predates the rule.
 	// Login either matches or it does not.
-	Password string `json:"password" validate:"required"`
+	Password string `json:"password" validate:"required" example:"correct-horse-battery"`
 }
 
 // Normalize trims and lowercases the email so that a user who registered as
@@ -77,12 +77,12 @@ func (l *Login) Normalize() {
 
 // Refresh exchanges a refresh token for a new token pair.
 type Refresh struct {
-	RefreshToken string `json:"refreshToken" validate:"required"`
+	RefreshToken string `json:"refreshToken" validate:"required" example:"paste-the-refreshToken-from-login"`
 }
 
 // Logout revokes a refresh token.
 type Logout struct {
-	RefreshToken string `json:"refreshToken" validate:"required"`
+	RefreshToken string `json:"refreshToken" validate:"required" example:"paste-the-refreshToken-from-login"`
 }
 
 // VerifyEmail redeems a verification token.
@@ -90,12 +90,12 @@ type VerifyEmail struct {
 	// 32 random bytes, base64url-unpadded, is always 43 characters. The bounds
 	// reject an obviously malformed value before it reaches the database, but
 	// they are not a security control: the token's 256 bits of entropy are.
-	Token string `json:"token" validate:"required,min=40,max=64"`
+	Token string `json:"token" validate:"required,min=40,max=64" example:"paste-the-token-from-the-verification-email"`
 }
 
 // ResendVerification asks for a fresh verification email.
 type ResendVerification struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `json:"email" validate:"required,email" example:"alice@example.com"`
 }
 
 // Normalize trims and lowercases, so a resend for " Alice@Example.com " finds
@@ -108,8 +108,8 @@ func (r *ResendVerification) Normalize() {
 type ChangePassword struct {
 	// Requiring the current password stops an attacker who has stolen an
 	// access token (say, from a logged XHR) from locking the real owner out.
-	CurrentPassword string `json:"currentPassword" validate:"required"`
+	CurrentPassword string `json:"currentPassword" validate:"required" example:"correct-horse-battery"`
 
 	// nefield ensures the new password actually differs from the old one.
-	NewPassword string `json:"newPassword" validate:"required,min=8,max=72,nefield=CurrentPassword"`
+	NewPassword string `json:"newPassword" validate:"required,min=8,max=72,nefield=CurrentPassword" example:"a-different-strong-password"`
 }
