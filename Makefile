@@ -184,3 +184,26 @@ migrate-test-up: ## Apply migrations to the TEST database
 .PHONY: psql
 psql: ## Open a psql shell on the dev database
 	@psql "$(DB_DSN)"
+
+.PHONY: db-info
+db-info: ## Print the connection settings for a GUI client (pgAdmin, TablePlus)
+	@echo "Paste these into your GUI client:"
+	@echo ""
+	@echo "  Host        localhost"
+	@echo "  Port        $(DB_PORT)"
+	@echo "  Database    $(DB_NAME)"
+	@echo "  Username    $(DB_USER)"
+	@echo "  Password    run 'make db-password' to copy it to your clipboard"
+	@echo "  SSL mode    $(DB_SSLMODE)"
+	@echo ""
+	@echo "No-password alternative: set Host to '/tmp' instead of 'localhost'."
+	@echo "That connects over the Unix socket, which pg_hba.conf still trusts."
+
+.PHONY: db-password
+db-password: ## Copy the dev database password to the clipboard (never prints it)
+	@printf '%s' "$(DB_PASSWORD)" | pbcopy
+	@echo "Password for '$(DB_USER)' copied to clipboard ($(shell printf '%s' "$(DB_PASSWORD)" | wc -c | tr -d ' ') chars)."
+	@echo "It was not printed. Paste it into your GUI client now."
+# The password lives in .env, which is gitignored. Piping it straight to pbcopy
+# keeps it out of your terminal scrollback, out of shell history, and out of any
+# log this command's output lands in.
