@@ -520,6 +520,20 @@ project pays that price in exactly one place — the repository — and nowhere 
    the most idiomatic line in Go. It produced 10 findings here, all false
    positives. The Go team ships it as experimental for this reason.
 
+6. **The Swagger UI page gets a looser Content-Security-Policy than the API.**
+   `default-src 'none'; sandbox` is correct for JSON and fatal for an HTML page:
+   Swagger UI loaded with a 200 and rendered a blank white screen, because the
+   browser downloaded its script and stylesheet and then refused to execute
+   them. Nothing appeared as a failed request.
+
+   `middlewares.contentSecurityPolicy` therefore serves `docsCSP` — which allows
+   `'self'` and `'unsafe-inline'` — for `/docs` and `/docs/*`, and `apiCSP` for
+   everything else. `'unsafe-inline'` is acceptable there and nowhere else: the
+   route is not mounted in production, the inline script is one we ship, and no
+   user input reaches it. `internal/middlewares/security_test.go` pins all of
+   this, including that a lookalike path such as `/docsomething` still gets the
+   strict policy.
+
 ---
 
 ## 10. A note on CSRF

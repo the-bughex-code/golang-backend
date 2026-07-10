@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/cors"
 
@@ -36,10 +37,7 @@ func SecurityHeaders(isProduction bool) func(http.Handler) http.Handler {
 			// token — to third-party sites the user navigates to next.
 			h.Set("Referrer-Policy", "no-referrer")
 
-			// A JSON API never needs to load a script, a style, or an image.
-			// Telling the browser it may load nothing at all means a response
-			// that somehow gets rendered as HTML still cannot execute anything.
-			h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; sandbox")
+			h.Set("Content-Security-Policy", contentSecurityPolicy(r, isProduction))
 
 			// Deny access to device APIs outright.
 			h.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
@@ -59,6 +57,70 @@ func SecurityHeaders(isProduction bool) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// apiCSP is the policy for every JSON endpoint.
+//
+// A JSON API never needs to load a script, a style, or an image. Telling the
+// browser it may load nothing at all means that a response which somehow gets
+// rendered as HTML — because a proxy rewrote the content type, or a browser bug
+// sniffed it — still cannot execute anything. `sandbox` with no value is the
+// strongest form: no scripts, no forms, no popups, no same-origin access.
+const apiCSP = "default-src 'none'; frame-ancestors 'none'; sandbox"
+
+// docsCSP is the policy for the Swagger UI page.
+//
+// # Why it has to differ
+//
+// apiCSP blocks Swagger UI completely. The page loads with a 200 and renders as
+// a blank white screen, because `default-src 'none'` forbids swagger-ui.css and
+// swagger-ui-bundle.js, and `sandbox` forbids scripts outright. Nothing appears
+// in the network tab as failed — the browser simply refuses to execute what it
+// already downloaded. It is a genuinely confusing failure, and the fix is not
+// discoverable from the symptom.
+//
+// # Why each directive is present
+//
+//	default-src 'self'    only this origin; no CDN, no third party
+//	script-src  'unsafe-inline'  index.html bootstraps SwaggerUIBundle inline
+//	style-src   'unsafe-inline'  Swagger UI injects a <style> block
+//	img-src     data:     the favicon and inline icons are data: URIs
+//	connect-src 'self'    "Try it out" fetches this API, and nothing else
+//
+// # Is 'unsafe-inline' acceptable here
+//
+// Yes, and only here. The page is served exclusively outside production
+// (routes.go mounts /docs behind `!IsProduction`), the inline script is one we
+// ship ourselves, and no user input ever reaches it. The alternative — a nonce
+// per request — would mean rewriting the HTML that httpSwagger embeds.
+//
+// It is scoped by path so that a single API response can never inherit it.
+const docsCSP = "default-src 'self'; " +
+	"script-src 'self' 'unsafe-inline'; " +
+	"style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data:; " +
+	"font-src 'self' data:; " +
+	"connect-src 'self'; " +
+	"frame-ancestors 'none'"
+
+// contentSecurityPolicy picks the policy for this request.
+//
+// The production check is belt and braces: /docs is not routed at all when
+// APP_ENV=production, so a request for it there is a 404 carrying a JSON body,
+// which must get the strict API policy like every other JSON response.
+func contentSecurityPolicy(r *http.Request, isProduction bool) string {
+	if !isProduction && isDocsPath(r.URL.Path) {
+		return docsCSP
+	}
+	return apiCSP
+}
+
+// isDocsPath reports whether the request targets the Swagger UI.
+//
+// Matches "/docs" exactly and anything under "/docs/". It must NOT match a
+// future "/docsomething" route, which a bare HasPrefix("/docs") would.
+func isDocsPath(path string) bool {
+	return path == "/docs" || strings.HasPrefix(path, "/docs/")
 }
 
 // CORS configures cross-origin access.
