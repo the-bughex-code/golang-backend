@@ -1,9 +1,16 @@
 # Backend
 
+[![CI](https://github.com/the-bughex-code/golang-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/the-bughex-code/golang-backend/actions/workflows/ci.yml)
+
 A production-ready Go backend: Clean Architecture, JWT authentication, RBAC,
 PostgreSQL. Built to be the foundation for a SaaS, an ERP, or a mobile API.
 
 Go 1.26 · chi · pgx/v5 · PostgreSQL 15 · goose · zero external runtime services.
+
+```bash
+git clone https://github.com/the-bughex-code/golang-backend.git
+cd golang-backend
+```
 
 ---
 
