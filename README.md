@@ -157,8 +157,8 @@ internal/              Private to this module. The Go COMPILER refuses to let an
 migrations/            goose SQL migrations. Every one is reversible; that is
                        verified by rolling the whole stack down to zero and back.
 
-docs/                  architecture.md (read this) and the generated OpenAPI 3.1
-                       document, embedded into the binary.
+docs/                  architecture.md (read this) and the generated Swagger 2.0
+                       specification, embedded into the binary.
 
 scripts/               setup_db.sh — creates the app role and databases.
 
@@ -454,6 +454,12 @@ SQL, the design is telling you something.
 - **[docs/architecture.md](docs/architecture.md)** — the request lifecycle, the
   dependency rule, every trade-off and its alternative, and an honest list of
   this project's limitations.
-- `http://localhost:8080/docs` — interactive OpenAPI 3.1 reference.
+- `http://localhost:8080/docs` — interactive API reference (Swagger UI).
 - `docs/swagger.json` — the spec itself. Feed it to `openapi-generator` to
   generate a typed Dart client.
+
+The spec is Swagger 2.0 rather than OpenAPI 3.1. `swag` emits one or the other
+with nothing in between, and the Swagger UI that `http-swagger` bundles cannot
+render 3.1 — it shows "Unable to render this definition". Keeping 3.1 would mean
+vendoring 1.4 MB of Swagger UI 5.x into this repository to gain a version
+number. Swagger 2.0 is also what `openapi-generator` supports best.

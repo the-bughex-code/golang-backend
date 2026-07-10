@@ -1,5 +1,5 @@
-// Package docs embeds the generated OpenAPI 3.1 document so the binary can
-// serve it without reading from disk.
+// Package docs embeds the generated API specification so the binary can serve
+// it without reading from disk.
 //
 // # Why the spec is embedded rather than read at runtime
 //
@@ -17,19 +17,30 @@
 // 500 with that arrangement.
 //
 // Generating only swagger.json (`--outputTypes json,yaml`) and embedding it
-// here sidesteps the incompatibility, removes a release-candidate dependency,
-// and gives us OpenAPI 3.1 instead of the 2.0 that swag v1 would produce.
+// here sidesteps the incompatibility and removes a release-candidate dependency.
+//
+// # Why Swagger 2.0 and not OpenAPI 3.1
+//
+// swag can emit either, with nothing in between. The Swagger UI bundled by
+// http-swagger cannot render 3.1 — it reports "Unable to render this definition"
+// and lists `swagger: 2.0` and `openapi: 3.0.n` as the versions it accepts.
+// Keeping 3.1 would mean vendoring ~1.4 MB of Swagger UI 5.x into this
+// repository and maintaining it by hand, to gain a version number.
+//
+// Swagger 2.0 is also the format openapi-generator handles best, which is what
+// you would use to generate a typed Dart client from this file.
 //
 // Regenerate with: make docs
 package docs
 
 import _ "embed"
 
-// SwaggerJSON is the OpenAPI 3.1 document, embedded at compile time.
+// SwaggerJSON is the Swagger 2.0 document, embedded at compile time.
 //
 // It is committed to version control so `go build` succeeds without the swag
 // CLI installed. Regenerate it whenever you change an @-annotation, and commit
 // the result — a stale spec is worse than no spec, because people trust it.
+// CI enforces this: the `docs` job regenerates and fails on any difference.
 //
 //go:embed swagger.json
 var SwaggerJSON []byte

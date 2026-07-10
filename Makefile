@@ -115,14 +115,28 @@ check: tidy vet lint test ## Everything CI runs. Run this before you push.
 # API documentation
 # ---------------------------------------------------------------------------
 .PHONY: docs
-docs: ## Regenerate the OpenAPI 3.1 spec from handler annotations
-	@command -v swag >/dev/null || (echo "swag not installed. Run: go install github.com/swaggo/swag/v2/cmd/swag@latest" && exit 1)
-	swag init --v3.1 -g cmd/api/main.go -o docs --parseInternal --outputTypes json,yaml
+docs: ## Regenerate the API spec from handler annotations
+	@command -v swag >/dev/null || (echo "swag not installed. Run: go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5" && exit 1)
+	swag init -g cmd/api/main.go -o docs --parseInternal --outputTypes json,yaml
 	@echo "Regenerated docs/swagger.json and docs/swagger.yaml. Commit them."
-# --outputTypes json,yaml deliberately excludes docs.go. That file would
-# register the spec in swag v2's global registry, while http-swagger/v2 reads
-# swag v1's — two registries, and /docs/doc.json returns 500. We embed the
-# JSON instead; see docs/embed.go.
+#
+# Swagger 2.0, not OpenAPI 3.1, and not by accident.
+#
+# `swag init --v3.1` emits OpenAPI 3.1. The Swagger UI that http-swagger embeds
+# (via swaggo/files v2, the newest release there is) cannot render it: the page
+# loads and prints "Unable to render this definition — supported version fields
+# are swagger: 2.0 and openapi: 3.0.n". swag offers no 3.0 option, so the choice
+# is 2.0 or a different UI.
+#
+# Keeping 3.1 would mean vendoring ~1.4 MB of Swagger UI 5.x into this repo and
+# maintaining it by hand, to gain a version number. Swagger 2.0 is also the
+# format openapi-generator supports best, which is what you would use to
+# generate a typed Dart client.
+#
+# --outputTypes json,yaml deliberately excludes docs.go. That file would register
+# the spec in swag v2's global registry, while http-swagger/v2 reads swag v1's —
+# two registries, and /docs/doc.json returns 500. We embed the JSON instead; see
+# docs/embed.go.
 
 .PHONY: docs-serve
 docs-serve: ## Print where to read the docs while the server is running

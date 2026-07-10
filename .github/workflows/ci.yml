@@ -190,7 +190,7 @@ jobs:
         run: make vuln
 
   # ---------------------------------------------------------------------------
-  # The committed OpenAPI spec must match the handler annotations.
+  # The committed API spec must match the handler annotations.
   #
   # A stale API document is worse than none, because people trust it. This job
   # regenerates the spec and fails if the result differs from what was committed.

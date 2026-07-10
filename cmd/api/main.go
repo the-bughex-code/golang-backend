@@ -23,8 +23,8 @@
 // the work lives in run(), where `defer db.Close()` actually runs.
 //
 // ---------------------------------------------------------------------------
-// The @-prefixed lines below are read by `swag` to generate the OpenAPI 3.1
-// document (`make docs`). They are ordinary Go comments to the compiler.
+// The @-prefixed lines below are read by `swag` to generate the API
+// specification (`make docs`). They are ordinary Go comments to the compiler.
 // ---------------------------------------------------------------------------
 //
 //	@title			Backend API

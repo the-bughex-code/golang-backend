@@ -134,7 +134,7 @@ func New(ctx context.Context, d Dependencies) http.Handler {
 		// Serve the embedded spec ourselves.
 		//
 		// httpSwagger would otherwise try to serve /docs/doc.json out of swag
-		// v1's global registry, which our OpenAPI 3.1 document never enters.
+		// v1's global registry, which the spec we generate never enters.
 		// chi matches a static segment before a wildcard, so this route wins
 		// over /docs/* below.
 		r.Get("/docs/doc.json", func(w http.ResponseWriter, _ *http.Request) {
