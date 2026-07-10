@@ -1,0 +1,220 @@
+# Continuous integration.
+#
+# # The one design rule
+#
+# Every job below calls a Makefile target. Nothing here reimplements a command.
+# `make check` on your laptop and `make check` in CI are the same command, so
+# they cannot drift apart, and a failure here is always reproducible locally by
+# running the target named in the step.
+#
+# If you find yourself writing `go test ...` in this file, add a Make target
+# instead.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least privilege. The default token can write to the repository; none of these
+# jobs need to.
+permissions:
+  contents: read
+
+# A second push to the same branch cancels the first run. Without this, a busy
+# branch queues up runs that are already obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned, so a new upstream release cannot turn a green build red overnight.
+  # Bump these deliberately, in a commit, alongside the local versions.
+  GOLANGCI_LINT_VERSION: v2.12.2
+  GOOSE_VERSION: v3.27.2
+  SWAG_VERSION: v2.0.0
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint, vet, unit tests, and a release build. No database required.
+  # ---------------------------------------------------------------------------
+  check:
+    name: Lint, vet and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # Read the version from go.mod rather than repeating it here. One
+          # source of truth; upgrading Go is a one-line change.
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install golangci-lint
+        # Installed as a prebuilt binary, not with `go install`.
+        #
+        # The golangci-lint project explicitly does not support `go install`:
+        # the linter must be built with the same flags its maintainers used, or
+        # some analyzers behave differently. This is their documented method.
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" "${GOLANGCI_LINT_VERSION}"
+          golangci-lint --version
+
+      - name: make check
+        # tidy + vet + lint + test, exactly as on a developer's machine.
+        run: make check
+
+      - name: Verify go.mod and go.sum are tidy
+        # `make check` runs `go mod tidy`, which MUTATES these files. On a
+        # laptop that is convenient. In CI it means a pull request could pass
+        # while leaving go.mod out of sync with its imports — and the next
+        # person to run tidy gets an unrelated diff in their commit.
+        #
+        # Fail loudly instead.
+        run: |
+          if ! git diff --exit-code -- go.mod go.sum; then
+            echo "::error::go.mod or go.sum is not tidy. Run 'make tidy' and commit the result."
+            exit 1
+          fi
+
+      - name: make build
+        # Proves the production binary compiles with CGO_ENABLED=0. The unit
+        # tests run with cgo enabled (the race detector needs it), so a build
+        # that only passes under cgo would slip through `make test`.
+        run: make build
+
+  # ---------------------------------------------------------------------------
+  # Integration tests against a real PostgreSQL.
+  #
+  # These verify what a fake cannot: that a transaction really rolls back on
+  # error and on panic, that the partial unique index really frees a soft-deleted
+  # email, that ON DELETE CASCADE really fires, and that SQLSTATE 23505 really
+  # becomes a 409.
+  # ---------------------------------------------------------------------------
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        # Match the major version you run in development and production.
+        # A minor difference is fine; a major one is not.
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          # The test suite refuses to run against any database named
+          # backend_dev, so name it explicitly.
+          POSTGRES_DB: backend_test
+        ports:
+          - 5432:5432
+        # Without a health check, the next step races the database's startup and
+        # fails intermittently — the worst kind of CI failure.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # No .env file exists in CI, by design: secrets belong in the environment.
+      # The Makefile's `-include .env` tolerates its absence, and make imports
+      # these automatically.
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: backend_test
+      DB_SSLMODE: disable
+
+      # Not a secret: this database is destroyed when the job ends, and the
+      # value never signs a token anyone will hold. It only has to satisfy the
+      # 32-character minimum that config.Load() enforces.
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-chars-long
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install goose
+        run: go install github.com/pressly/goose/v3/cmd/goose@${{ env.GOOSE_VERSION }}
+
+      - name: make test-integration
+        # Depends on migrate-test-up, so this applies the schema and then runs
+        # the suite. If a migration is not reversible, or a Down block is wrong,
+        # you find out here rather than in production.
+        run: make test-integration
+
+  # ---------------------------------------------------------------------------
+  # Known vulnerabilities in dependencies we actually call.
+  # ---------------------------------------------------------------------------
+  security:
+    name: Vulnerability scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install govulncheck
+        # @latest on purpose. A vulnerability scanner pinned to an old version
+        # is a scanner that does not know about last week's CVE. This is the one
+        # tool where "newest" is the correct choice.
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: make vuln
+        # Symbol-level, not module-level. See the comment on the `vuln` target
+        # in the Makefile for why a module-level gate would fail forever.
+        run: make vuln
+
+  # ---------------------------------------------------------------------------
+  # The committed OpenAPI spec must match the handler annotations.
+  #
+  # A stale API document is worse than none, because people trust it. This job
+  # regenerates the spec and fails if the result differs from what was committed.
+  # ---------------------------------------------------------------------------
+  docs:
+    name: OpenAPI spec is up to date
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/v2/cmd/swag@${{ env.SWAG_VERSION }}
+
+      - name: make docs
+        run: make docs
+
+      - name: Verify the committed spec matches the annotations
+        run: |
+          if ! git diff --exit-code -- docs/swagger.json docs/swagger.yaml; then
+            echo "::error::The OpenAPI spec is stale. Run 'make docs' and commit docs/swagger.json and docs/swagger.yaml."
+            exit 1
+          fi

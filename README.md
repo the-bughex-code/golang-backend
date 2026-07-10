@@ -176,6 +176,7 @@ functions and `go test ./...` finds them automatically.
 | `make bench` | Benchmarks — use before changing the bcrypt cost |
 | `make lint` | golangci-lint |
 | `make fmt` | gofumpt + import grouping |
+| `make vuln` | Scan dependencies for vulnerabilities this code reaches |
 | `make check` | tidy + vet + lint + test. Run before you push. |
 | `make migrate-up` | Apply migrations |
 | `make migrate-down` | Roll back one |
@@ -376,6 +377,37 @@ back on error *and on panic*, that a nested `InTx` joins the outer transaction,
 that the partial unique index really frees an email after soft deletion, and
 that SQLSTATE `23505` really becomes a `409 EMAIL_TAKEN` without leaking the
 constraint name.
+
+---
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`. Four
+jobs, in parallel:
+
+| Job | Runs | Catches |
+|---|---|---|
+| **check** | `make check`, `make build` | lint, vet, unit tests, and an untidy `go.mod` |
+| **integration** | `make test-integration` against a `postgres:15` service | a broken migration, a transaction that does not roll back |
+| **security** | `make vuln` | a known CVE in code you actually call |
+| **docs** | `make docs` | an OpenAPI spec that no longer matches the handler annotations |
+
+**Every job calls a Makefile target.** Nothing in the workflow reimplements a
+command, so `make check` on your laptop and `make check` in CI cannot drift
+apart — and any CI failure is reproducible locally by running the target named
+in the failing step.
+
+Two of those jobs are gates that would silently pass if written carelessly, so
+both were verified to *fail* when they should: changing an annotation without
+running `make docs` breaks the docs job, and leaving `go.mod` untidy breaks the
+check job.
+
+`make vuln` uses govulncheck's default **symbol-level** scan, not `-scan module`.
+`golang.org/x/crypto` carries an advisory against its unmaintained `openpgp`
+package, marked *Fixed in: N/A*. We import `bcrypt` from that module and never
+touch `openpgp`. A module-level gate would therefore fail forever, for a risk we
+do not carry — and the only way to get a green build would be to ignore it. A
+gate everyone ignores is worse than no gate.
 
 ---
 

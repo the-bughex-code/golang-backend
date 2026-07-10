@@ -94,6 +94,20 @@ vet: ## Run go vet
 tidy: ## Sync go.mod/go.sum with the imports actually used
 	go mod tidy
 
+.PHONY: vuln
+vuln: ## Scan for known vulnerabilities that this code actually reaches
+	@command -v govulncheck >/dev/null || (echo "govulncheck not installed. Run: go install golang.org/x/vuln/cmd/govulncheck@latest" && exit 1)
+	govulncheck ./...
+# Symbol-level scan (the default), not `-scan module`.
+#
+# A module-level scan reports every advisory against every module in go.mod,
+# whether or not you call the affected function. golang.org/x/crypto carries
+# GO-2026-5932 against its unmaintained `openpgp` package, marked "Fixed in:
+# N/A" — we import bcrypt from that module and never touch openpgp. A
+# module-level gate would therefore fail forever, for a risk we do not carry,
+# and the only way to make CI green would be to ignore it. A gate everyone
+# ignores is worse than no gate.
+
 .PHONY: check
 check: tidy vet lint test ## Everything CI runs. Run this before you push.
 
