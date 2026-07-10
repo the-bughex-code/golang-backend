@@ -34,7 +34,10 @@ env:
   # Bump these deliberately, in a commit, alongside the local versions.
   GOLANGCI_LINT_VERSION: v2.12.2
   GOOSE_VERSION: v3.27.2
-  SWAG_VERSION: v2.0.0
+  # NOTE: `swag --version` prints "v2.0.0", but no such tag is published.
+  # The CLI hardcodes that string; the newest real module tag is v2.0.0-rc5.
+  # Trust `go list -m -versions`, never the binary's self-reported version.
+  SWAG_VERSION: v2.0.0-rc5
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -46,10 +49,10 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           # Read the version from go.mod rather than repeating it here. One
           # source of truth; upgrading Go is a one-line change.
@@ -141,10 +144,10 @@ jobs:
       JWT_SECRET: ci-only-jwt-secret-at-least-32-chars-long
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -167,10 +170,10 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -198,10 +201,10 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
