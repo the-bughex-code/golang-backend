@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/dto/response"
-	"github.com/the-bughex-code/backend/internal/services"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/dto/response"
+	"github.com/the-bughex-code/golang-backend/internal/services"
 )
 
 // contextKey is an unexported type, so a key created here cannot collide with

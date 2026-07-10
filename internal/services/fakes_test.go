@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/models"
-	"github.com/the-bughex-code/backend/internal/repositories"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/models"
+	"github.com/the-bughex-code/golang-backend/internal/repositories"
 )
 
 // These fakes are the payoff for declaring interfaces in the consumer.

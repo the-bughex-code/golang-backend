@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/validators"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/validators"
 )
 
 type payload struct {

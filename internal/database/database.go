@@ -30,7 +30,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/the-bughex-code/backend/internal/config"
+	"github.com/the-bughex-code/golang-backend/internal/config"
 )
 
 // Querier is the subset of pgx that repositories are allowed to use.

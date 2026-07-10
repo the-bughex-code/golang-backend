@@ -30,7 +30,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
 )
 
 // Validator validates structs. It is safe for concurrent use and should be

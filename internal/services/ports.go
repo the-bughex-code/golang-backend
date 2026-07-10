@@ -35,8 +35,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/the-bughex-code/backend/internal/models"
-	"github.com/the-bughex-code/backend/internal/repositories"
+	"github.com/the-bughex-code/golang-backend/internal/models"
+	"github.com/the-bughex-code/golang-backend/internal/repositories"
 )
 
 // AuthUserStore is exactly what AuthService needs from user storage.

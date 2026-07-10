@@ -109,4 +109,4 @@ formatters:
       # this module. Makes an accidental dependency on another internal package
       # visible at a glance.
       local-prefixes:
-        - github.com/the-bughex-code/backend
+        - github.com/the-bughex-code/golang-backend

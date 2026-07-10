@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-chi/cors"
 
-	"github.com/the-bughex-code/backend/internal/config"
+	"github.com/the-bughex-code/golang-backend/internal/config"
 )
 
 // SecurityHeaders sets response headers that instruct browsers to behave.

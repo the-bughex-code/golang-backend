@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/config"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/config"
 )
 
 // newTestAuthService assembles an AuthService from fakes. Every test starts

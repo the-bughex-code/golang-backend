@@ -38,11 +38,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/config"
-	"github.com/the-bughex-code/backend/internal/database"
-	"github.com/the-bughex-code/backend/internal/models"
-	"github.com/the-bughex-code/backend/internal/repositories"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/config"
+	"github.com/the-bughex-code/golang-backend/internal/database"
+	"github.com/the-bughex-code/golang-backend/internal/models"
+	"github.com/the-bughex-code/golang-backend/internal/repositories"
 )
 
 // testDB connects to the test database, wipes it, and registers cleanup.

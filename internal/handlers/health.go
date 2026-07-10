@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/database"
-	"github.com/the-bughex-code/backend/internal/dto/response"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/database"
+	"github.com/the-bughex-code/golang-backend/internal/dto/response"
 )
 
 // HealthHandler reports whether the process is alive and whether it can serve.

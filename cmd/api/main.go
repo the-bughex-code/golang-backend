@@ -67,14 +67,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/the-bughex-code/backend/internal/config"
-	"github.com/the-bughex-code/backend/internal/database"
-	"github.com/the-bughex-code/backend/internal/handlers"
-	"github.com/the-bughex-code/backend/internal/logger"
-	"github.com/the-bughex-code/backend/internal/repositories"
-	"github.com/the-bughex-code/backend/internal/routes"
-	"github.com/the-bughex-code/backend/internal/services"
-	"github.com/the-bughex-code/backend/internal/validators"
+	"github.com/the-bughex-code/golang-backend/internal/config"
+	"github.com/the-bughex-code/golang-backend/internal/database"
+	"github.com/the-bughex-code/golang-backend/internal/handlers"
+	"github.com/the-bughex-code/golang-backend/internal/logger"
+	"github.com/the-bughex-code/golang-backend/internal/repositories"
+	"github.com/the-bughex-code/golang-backend/internal/routes"
+	"github.com/the-bughex-code/golang-backend/internal/services"
+	"github.com/the-bughex-code/golang-backend/internal/validators"
 )
 
 // version is stamped at build time by the Makefile:

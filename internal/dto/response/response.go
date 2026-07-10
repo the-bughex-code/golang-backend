@@ -28,8 +28,8 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/logger"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/logger"
 )
 
 // Envelope is the body of every response this API produces, success or failure.

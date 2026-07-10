@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/validators"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/validators"
 )
 
 // maxBodyBytes caps how much a client may send.

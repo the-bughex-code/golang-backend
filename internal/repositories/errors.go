@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
 )
 
 // PostgreSQL SQLSTATE codes we care about.

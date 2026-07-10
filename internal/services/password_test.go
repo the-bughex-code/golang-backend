@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
 )
 
 func TestHashPassword(t *testing.T) {

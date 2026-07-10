@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/dto/response"
-	"github.com/the-bughex-code/backend/internal/logger"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/dto/response"
+	"github.com/the-bughex-code/golang-backend/internal/logger"
 )
 
 // Recover turns a panic in any handler into a logged 500 response.

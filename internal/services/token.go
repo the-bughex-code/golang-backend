@@ -12,9 +12,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/config"
-	"github.com/the-bughex-code/backend/internal/models"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/config"
+	"github.com/the-bughex-code/golang-backend/internal/models"
 )
 
 // Claims is the payload of an access token.

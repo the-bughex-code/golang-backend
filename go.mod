@@ -1,4 +1,4 @@
-module github.com/the-bughex-code/backend
+module github.com/the-bughex-code/golang-backend
 
 go 1.26.5
 

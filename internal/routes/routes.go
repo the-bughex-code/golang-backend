@@ -16,14 +16,14 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	"github.com/the-bughex-code/backend/docs"
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/config"
-	"github.com/the-bughex-code/backend/internal/dto/response"
-	"github.com/the-bughex-code/backend/internal/handlers"
-	"github.com/the-bughex-code/backend/internal/middlewares"
-	"github.com/the-bughex-code/backend/internal/models"
-	"github.com/the-bughex-code/backend/internal/services"
+	"github.com/the-bughex-code/golang-backend/docs"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/config"
+	"github.com/the-bughex-code/golang-backend/internal/dto/response"
+	"github.com/the-bughex-code/golang-backend/internal/handlers"
+	"github.com/the-bughex-code/golang-backend/internal/middlewares"
+	"github.com/the-bughex-code/golang-backend/internal/models"
+	"github.com/the-bughex-code/golang-backend/internal/services"
 )
 
 // Dependencies is everything the router needs, supplied by the composition root

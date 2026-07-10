@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
 )
 
 // bcryptCost is the work factor: bcrypt runs 2^cost rounds.

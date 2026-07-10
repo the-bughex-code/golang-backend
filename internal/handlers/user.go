@@ -7,12 +7,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/the-bughex-code/backend/internal/apperrors"
-	"github.com/the-bughex-code/backend/internal/dto/request"
-	"github.com/the-bughex-code/backend/internal/dto/response"
-	"github.com/the-bughex-code/backend/internal/middlewares"
-	"github.com/the-bughex-code/backend/internal/services"
-	"github.com/the-bughex-code/backend/internal/validators"
+	"github.com/the-bughex-code/golang-backend/internal/apperrors"
+	"github.com/the-bughex-code/golang-backend/internal/dto/request"
+	"github.com/the-bughex-code/golang-backend/internal/dto/response"
+	"github.com/the-bughex-code/golang-backend/internal/middlewares"
+	"github.com/the-bughex-code/golang-backend/internal/services"
+	"github.com/the-bughex-code/golang-backend/internal/validators"
 )
 
 // UserHandler serves administrative operations on OTHER users' records.

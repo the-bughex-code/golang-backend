@@ -30,8 +30,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/the-bughex-code/backend/internal/database"
-	"github.com/the-bughex-code/backend/internal/models"
+	"github.com/the-bughex-code/golang-backend/internal/database"
+	"github.com/the-bughex-code/golang-backend/internal/models"
 )
 
 // UserRepository reads and writes the users table.
