@@ -1,0 +1,67 @@
+{
+  // Debug configurations. Press F5 to start; the green triangle in the Run
+  // panel picks between them.
+  //
+  // Debugging works through Delve (dlv), which the Go extension drives. You get
+  // real breakpoints, variable inspection, and a call stack — not print
+  // statements. Set a breakpoint by clicking left of a line number.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // The one you will use most: run the whole API under the debugger.
+      // Breakpoints in handlers, services and repositories all work; the
+      // request pauses mid-flight and you can inspect every layer.
+      "name": "Debug API server",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/api",
+      "cwd": "${workspaceFolder}",
+
+      // envFile loads .env exactly as the running app does, so the debugger
+      // talks to the same database with the same settings. Without it, the
+      // process would start, fail config validation, and exit before you
+      // reached a breakpoint.
+      "envFile": "${workspaceFolder}/.env",
+
+      // Slow down for a human: 15 seconds of write timeout is not enough when
+      // you are sitting on a breakpoint. Overrides the .env values above.
+      "env": {
+        "LOG_LEVEL": "debug",
+        "SERVER_WRITE_TIMEOUT": "600s",
+        "SERVER_READ_TIMEOUT": "600s",
+        "RATE_LIMIT_ENABLED": "false"
+      }
+    },
+    {
+      // Debug whichever test function your cursor is inside.
+      "name": "Debug current test",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${fileDirname}",
+      "args": ["-test.run", "${selectedText}"]
+    },
+    {
+      // Debug every test in the package of the open file.
+      "name": "Debug package tests",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${fileDirname}",
+      "buildFlags": "",
+      "env": {
+        "LOG_LEVEL": "debug"
+      }
+    },
+    {
+      // Attach to an already-running process — for example one started by
+      // `make dev` (air). Pick the PID from the list VS Code shows.
+      "name": "Attach to running API",
+      "type": "go",
+      "request": "attach",
+      "mode": "local",
+      "processId": "${command:pickGoProcess}"
+    }
+  ]
+}

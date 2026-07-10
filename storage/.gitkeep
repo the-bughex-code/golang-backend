@@ -1,0 +1,5 @@
+# Git tracks files, not directories. An empty directory cannot be committed.
+#
+# This placeholder makes `storage/` exist on a fresh clone, while .gitignore
+# excludes everything else inside it. The application writes uploads and
+# generated files here at runtime; none of it belongs in version control.

@@ -1,0 +1,1451 @@
+{
+    "components": {
+        "schemas": {
+            "apperrors.FieldError": {
+                "properties": {
+                    "field": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "data": {
+                "properties": {
+                    "data": {
+                        "items": {
+                            "$ref": "#/components/schemas/response.Role"
+                        },
+                        "type": "array"
+                    }
+                },
+                "type": "object"
+            },
+            "pagination": {
+                "properties": {
+                    "pagination": {
+                        "$ref": "#/components/schemas/response.Pagination"
+                    }
+                },
+                "type": "object"
+            },
+            "request.AssignRole": {
+                "properties": {
+                    "roleName": {
+                        "maxLength": 100,
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "roleName"
+                ],
+                "type": "object"
+            },
+            "request.ChangePassword": {
+                "properties": {
+                    "currentPassword": {
+                        "description": "Requiring the current password stops an attacker who has stolen an\naccess token (say, from a logged XHR) from locking the real owner out.",
+                        "type": "string"
+                    },
+                    "newPassword": {
+                        "description": "nefield ensures the new password actually differs from the old one.",
+                        "maxLength": 72,
+                        "minLength": 8,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "currentPassword",
+                    "newPassword"
+                ],
+                "type": "object"
+            },
+            "request.Login": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "description": "No min= here. Rejecting a 3-character password at login with \"must be at\nleast 8 characters\" tells an attacker the password was too short to be\nreal, and annoys a legitimate user whose password predates the rule.\nLogin either matches or it does not.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "type": "object"
+            },
+            "request.Logout": {
+                "properties": {
+                    "refreshToken": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "refreshToken"
+                ],
+                "type": "object"
+            },
+            "request.Refresh": {
+                "properties": {
+                    "refreshToken": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "refreshToken"
+                ],
+                "type": "object"
+            },
+            "request.Register": {
+                "properties": {
+                    "email": {
+                        "maxLength": 254,
+                        "type": "string"
+                    },
+                    "firstName": {
+                        "maxLength": 100,
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "lastName": {
+                        "maxLength": 100,
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "password": {
+                        "description": "Password bounds, and why they are what they are:\n\n  min=8  — NIST SP 800-63B sets 8 as the floor for user-chosen secrets.\n  max=72 — bcrypt hashes at most 72 BYTES. Go's implementation returns\n           an error above that rather than silently truncating (some\n           other languages truncate, which means \"correcthorse...\" and\n           \"correcthorse...extra\" become the same password). Rejecting\n           it here produces a clear message instead of a 500.\n\nDeliberately absent: composition rules (\"must contain an uppercase\nletter and a symbol\"). NIST advises against them. They push users toward\nP@ssw0rd1 — predictable to a cracker, hard for a human — while adding\nno meaningful entropy. Length is what matters.",
+                        "maxLength": 72,
+                        "minLength": 8,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "firstName",
+                    "lastName",
+                    "password"
+                ],
+                "type": "object"
+            },
+            "request.UpdateProfile": {
+                "properties": {
+                    "firstName": {
+                        "maxLength": 100,
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "lastName": {
+                        "maxLength": 100,
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "firstName",
+                    "lastName"
+                ],
+                "type": "object"
+            },
+            "response.Auth": {
+                "properties": {
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "expiresIn": {
+                        "description": "ExpiresIn is the access token's lifetime in seconds. Clients should\nrefresh slightly before this elapses, rather than waiting for a 401.",
+                        "type": "integer"
+                    },
+                    "refreshToken": {
+                        "description": "RefreshToken is the ONLY time the raw token is ever transmitted. The\nserver stores only its SHA-256 hash and can never show it again.",
+                        "type": "string"
+                    },
+                    "tokenType": {
+                        "description": "TokenType is always \"Bearer\". Sent so the client can build the\nAuthorization header without hardcoding the scheme.",
+                        "type": "string"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/response.User"
+                    }
+                },
+                "type": "object"
+            },
+            "response.Envelope": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/data"
+                    }
+                ],
+                "properties": {
+                    "data": {
+                        "description": "Data carries the payload on success, and is null on failure."
+                    },
+                    "errors": {
+                        "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                        "items": {
+                            "$ref": "#/components/schemas/apperrors.FieldError"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "message": {
+                        "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                        "type": "string"
+                    },
+                    "meta": {
+                        "additionalProperties": {},
+                        "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                        "type": "object"
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/response.Pagination"
+                    },
+                    "requestId": {
+                        "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                        "type": "string"
+                    },
+                    "success": {
+                        "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "response.Pagination": {
+                "description": "Pagination is present only on list endpoints.",
+                "properties": {
+                    "hasNext": {
+                        "type": "boolean"
+                    },
+                    "hasPrev": {
+                        "type": "boolean"
+                    },
+                    "page": {
+                        "type": "integer"
+                    },
+                    "perPage": {
+                        "type": "integer"
+                    },
+                    "total": {
+                        "type": "integer"
+                    },
+                    "totalPages": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "response.Permission": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "response.Role": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "permissions": {
+                        "items": {
+                            "$ref": "#/components/schemas/response.Permission"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "response.User": {
+                "properties": {
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "emailVerifiedAt": {
+                        "type": "string"
+                    },
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "fullName": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "lastName": {
+                        "type": "string"
+                    },
+                    "roles": {
+                        "description": "Roles is null when the caller did not request them, and an array\notherwise. Never an empty array standing in for \"not loaded\".",
+                        "items": {
+                            "$ref": "#/components/schemas/response.Role"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "updatedAt": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "BearerAuth": {
+                "description": "Send the access token as: Bearer \u003ctoken\u003e",
+                "in": "header",
+                "name": "Authorization",
+                "type": "apiKey"
+            }
+        }
+    },
+    "info": {
+        "contact": {
+            "name": "the-bughex-code"
+        },
+        "description": "A production-ready Go backend: JWT authentication, RBAC, and PostgreSQL.\nEvery response uses the same envelope: success, message, data, errors,\npagination, meta, timestamp, requestId.",
+        "license": {
+            "name": "MIT"
+        },
+        "title": "Backend API",
+        "version": "1.0"
+    },
+    "externalDocs": {
+        "description": "",
+        "url": ""
+    },
+    "paths": {
+        "/api/v1/auth/login": {
+            "post": {
+                "description": "Returns an access token (short-lived, stateless) and a refresh token\n(long-lived, revocable). An unknown email and a wrong password return\nthe identical error, in the same amount of time.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/request.Login",
+                                        "summary": "body",
+                                        "description": "Credentials"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Credentials",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "INVALID_CREDENTIALS"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "ACCOUNT_DISABLED"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "RATE_LIMITED"
+                    }
+                },
+                "summary": "Sign in",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "description": "Revokes one refresh token, ending that session. The access token remains\nvalid until it expires; the client must discard it.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/request.Logout",
+                                        "summary": "body",
+                                        "description": "Refresh token"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Refresh token",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "summary": "Sign out",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "description": "Consumes the refresh token and issues a NEW one (rotation). Presenting an\nalready-consumed token revokes every session for that user, because it\nmeans the token was copied.\nThis endpoint is intentionally unauthenticated: the access token has expired.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/request.Refresh",
+                                        "summary": "body",
+                                        "description": "Refresh token"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Refresh token",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "REFRESH_TOKEN_INVALID, REFRESH_TOKEN_EXPIRED or REFRESH_TOKEN_REVOKED"
+                    }
+                },
+                "summary": "Refresh the access token",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "description": "Creates a user, grants the default `user` role, and returns the account.\nThe email is trimmed and lowercased before validation.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/request.Register",
+                                        "summary": "body",
+                                        "description": "Registration payload"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Registration payload",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "EMAIL_TAKEN"
+                    },
+                    "422": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "VALIDATION_FAILED"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "RATE_LIMITED"
+                    }
+                },
+                "summary": "Register a new account",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/api/v1/profile": {
+            "get": {
+                "description": "Returns the caller's own account, with roles and permissions.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "TOKEN_MISSING or TOKEN_EXPIRED"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Get my profile",
+                "tags": [
+                    "profile"
+                ]
+            },
+            "patch": {
+                "description": "Changes the caller's own name. Email, roles and active status cannot be\nchanged here; those fields do not exist on the request type.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/request.UpdateProfile",
+                                        "summary": "body",
+                                        "description": "New name"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "New name",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "422": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "VALIDATION_FAILED"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Update my profile",
+                "tags": [
+                    "profile"
+                ]
+            }
+        },
+        "/api/v1/profile/change-password": {
+            "post": {
+                "description": "Requires the current password. On success, EVERY refresh token for this\nuser is revoked, including the caller's own, so all devices must sign in again.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/request.ChangePassword",
+                                        "summary": "body",
+                                        "description": "Current and new password"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Current and new password",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "CURRENT_PASSWORD_INCORRECT"
+                    },
+                    "422": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "VALIDATION_FAILED"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Change my password",
+                "tags": [
+                    "profile"
+                ]
+            }
+        },
+        "/api/v1/roles": {
+            "get": {
+                "description": "Requires the `roles:read` permission.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "PERMISSION_DENIED"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List all roles",
+                "tags": [
+                    "roles"
+                ]
+            }
+        },
+        "/api/v1/users": {
+            "get": {
+                "description": "Offset-paginated. Requires the `users:read` permission.",
+                "parameters": [
+                    {
+                        "description": "Page number, 1-based",
+                        "in": "query",
+                        "name": "page",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "Rows per page, max 100",
+                        "in": "query",
+                        "name": "perPage",
+                        "schema": {
+                            "default": 20,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "Match against email, first or last name",
+                        "in": "query",
+                        "name": "search",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "PERMISSION_DENIED"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List users",
+                "tags": [
+                    "users"
+                ]
+            }
+        },
+        "/api/v1/users/{id}": {
+            "delete": {
+                "description": "Soft-deletes the account: the row survives so foreign keys still resolve,\nbut it is invisible to every read, and the email becomes reusable.\nRequires the `users:delete` permission. You cannot delete yourself.",
+                "parameters": [
+                    {
+                        "description": "User UUID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "CANNOT_DELETE_SELF or INVALID_ID"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "PERMISSION_DENIED"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "NOT_FOUND"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete a user",
+                "tags": [
+                    "users"
+                ]
+            },
+            "get": {
+                "description": "Requires the `users:read` permission.",
+                "parameters": [
+                    {
+                        "description": "User UUID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/data"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "description": "Data carries the payload on success, and is null on failure."
+                                        },
+                                        "errors": {
+                                            "description": "Errors carries per-field validation failures, and is null otherwise.\nThis is the only error detail ever echoed back verbatim.",
+                                            "items": {
+                                                "$ref": "#/components/schemas/apperrors.FieldError"
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": false
+                                        },
+                                        "message": {
+                                            "description": "Message is human-readable and safe to display. It is not stable; do not\nbranch on it.",
+                                            "type": "string"
+                                        },
+                                        "meta": {
+                                            "additionalProperties": {},
+                                            "description": "Meta is an escape hatch for endpoint-specific extras that do not deserve\na top-level field.",
+                                            "type": "object"
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/components/schemas/response.Pagination"
+                                        },
+                                        "requestId": {
+                                            "description": "RequestID ties this response to the server logs. When a user reports a\nbug, this string finds the exact request.",
+                                            "type": "string"
+                                        },
+                                        "success": {
+                                            "description": "Success is the single field a client should branch on. It is redundant\nwith the HTTP status code on purpose: some proxies and SDKs swallow the\nstatus, and a body that says success=false is impossible to misread.",
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "description": "Timestamp is the server's UTC clock at the moment of the response. Useful\nfor diagnosing client clock skew, which breaks token expiry checks.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "INVALID_ID"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "PERMISSION_DENIED"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "NOT_FOUND"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Get a user by id",
+                "tags": [
+                    "users"
+                ]
+            }
+        },
+        "/api/v1/users/{id}/roles": {
+            "post": {
+                "description": "Idempotent. Requires the `roles:assign` permission.\nThe change takes effect for the target user on their next login or token refresh.",
+                "parameters": [
+                    {
+                        "description": "User UUID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/request.AssignRole",
+                                        "summary": "body",
+                                        "description": "Role name"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Role name",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "PERMISSION_DENIED"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "NOT_FOUND"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Assign a role to a user",
+                "tags": [
+                    "roles"
+                ]
+            }
+        },
+        "/health/live": {
+            "get": {
+                "description": "Answers \"is the process running?\". Touches nothing external, deliberately:\na liveness probe that checks the database turns a database outage into a\ncontainer restart loop.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "summary": "Liveness probe",
+                "tags": [
+                    "health"
+                ]
+            }
+        },
+        "/health/ready": {
+            "get": {
+                "description": "Answers \"can this process serve a request?\". Pings the database. A failure\nshould remove the instance from the load balancer, not restart it.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/response.Envelope"
+                                }
+                            }
+                        },
+                        "description": "DATABASE_UNAVAILABLE"
+                    }
+                },
+                "summary": "Readiness probe",
+                "tags": [
+                    "health"
+                ]
+            }
+        }
+    },
+    "openapi": "3.1.0",
+    "servers": [
+        {
+            "url": "localhost:8080/"
+        }
+    ]
+}

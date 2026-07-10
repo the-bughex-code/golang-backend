@@ -1,0 +1,49 @@
+{
+  // Project-scoped settings. These override your user settings for this
+  // workspace only, and they are committed so the whole team gets them.
+
+  // Generate JSON struct tags in camelCase, matching the DTO conventions in
+  // internal/dto/. Right-click a struct → "Go: Add Tags to Struct Fields".
+  "go.addTags": {
+    "tags": "json",
+    "options": "",
+    "transform": "camelcase"
+  },
+
+  // Directories that hold no Go source and would only slow down search.
+  "files.exclude": {
+    "**/tmp": true,
+    "**/bin": true
+  },
+  "search.exclude": {
+    "**/tmp": true,
+    "**/bin": true,
+    "**/coverage.out": true,
+    "**/coverage.html": true
+  },
+
+  // Treat .env.example as a shell-ish file so comments highlight.
+  "files.associations": {
+    ".env.example": "properties",
+    "*.sql": "sql"
+  },
+
+  // gopls needs to know this is a single module rooted here.
+  "gopls": {
+    "build.directoryFilters": ["-tmp", "-bin", "-storage"]
+  },
+
+  // Integration tests are behind a build tag, so gopls would otherwise report
+  // their files as "excluded from build" and offer no completion in them.
+  "go.buildTags": "integration",
+
+  // SQL migration files are not Go; do not let the Go formatter near them.
+  "[sql]": {
+    "editor.formatOnSave": false
+  },
+
+  // The Makefile requires literal tabs.
+  "[makefile]": {
+    "editor.insertSpaces": false
+  }
+}

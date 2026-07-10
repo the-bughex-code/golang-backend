@@ -1,0 +1,98 @@
+{
+  // Build tasks. Run with Cmd+Shift+B, or Cmd+Shift+P → "Tasks: Run Task".
+  //
+  // Every task delegates to the Makefile rather than duplicating its commands.
+  // That way `make test` in your terminal and the "test" task in VS Code can
+  // never drift apart, and CI runs the identical thing.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "make build",
+      "group": { "kind": "build", "isDefault": true },
+
+      // $go is VS Code's built-in problem matcher for Go compiler output. It
+      // turns "main.go:12:5: undefined: foo" into a clickable entry in the
+      // Problems panel.
+      "problemMatcher": ["$go"],
+      "presentation": { "reveal": "silent", "clear": true }
+    },
+    {
+      "label": "run",
+      "type": "shell",
+      "command": "make run",
+      "problemMatcher": ["$go"],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "dev (live reload)",
+      "type": "shell",
+      "command": "make dev",
+      "isBackground": true,
+      "problemMatcher": ["$go"],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "make test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": ["$go"],
+      "presentation": { "reveal": "always", "clear": true }
+    },
+    {
+      "label": "test with coverage",
+      "type": "shell",
+      "command": "make test-cover",
+      "group": "test",
+      "problemMatcher": ["$go"]
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "make lint",
+      "problemMatcher": {
+        // golangci-lint's default text output is `file:line:col: message (linter)`.
+        // This matcher makes those clickable too.
+        "owner": "go",
+        "fileLocation": ["autoDetect", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*?):(\\d+):(\\d+):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
+        }
+      },
+      "presentation": { "reveal": "always", "clear": true }
+    },
+    {
+      "label": "format",
+      "type": "shell",
+      "command": "make fmt",
+      "problemMatcher": []
+    },
+    {
+      "label": "migrate up",
+      "type": "shell",
+      "command": "make migrate-up",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always" }
+    },
+    {
+      "label": "migrate status",
+      "type": "shell",
+      "command": "make migrate-status",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always" }
+    },
+    {
+      "label": "check (everything CI runs)",
+      "type": "shell",
+      "command": "make check",
+      "problemMatcher": ["$go"],
+      "presentation": { "reveal": "always", "clear": true }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# Secrets. This is the single most important line in this file.
+#
+# .env holds your database password and JWT signing key. Committing it once
+# means it lives in git history forever, even after you delete the file.
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+
+# ---------------------------------------------------------------------------
+# Build output
+# ---------------------------------------------------------------------------
+/bin/
+/tmp/            # air writes its rebuilt binary here
+*.exe
+*.test
+*.out
+
+# ---------------------------------------------------------------------------
+# Test coverage artifacts
+# ---------------------------------------------------------------------------
+coverage.out
+coverage.html
+
+# ---------------------------------------------------------------------------
+# Runtime storage: uploaded files, generated reports, local logs.
+# The directory is tracked (via .gitkeep) but its contents are not.
+# ---------------------------------------------------------------------------
+/storage/*
+!/storage/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Editor / OS noise
+#
+# .vscode/ is deliberately NOT ignored: launch.json and tasks.json are part of
+# the project's developer experience and should be shared with the team.
+# ---------------------------------------------------------------------------
+.DS_Store
+.idea/
+*.swp

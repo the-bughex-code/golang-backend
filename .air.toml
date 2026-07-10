@@ -1,0 +1,52 @@
+# Air — live reload for Go.
+#
+# `make dev` starts it. Air watches the files below, and on any change it
+# rebuilds the binary and restarts it. Save a file, the API is running the new
+# code before you have switched windows.
+#
+# This replaces the Flutter hot-reload muscle memory. It is not hot reload:
+# the process genuinely restarts, so in-memory state (the rate limiter's
+# buckets) is lost each time. That is fine, and it is also a useful reminder
+# that anything you keep in memory does not survive a deploy.
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# The command Air runs to rebuild. Identical to `make build` except it targets
+# tmp/, which is gitignored.
+cmd = "go build -o ./tmp/api ./cmd/api"
+bin = "./tmp/api"
+
+# Watch these extensions.
+include_ext = ["go", "sql", "env"]
+
+# Never watch these. Watching tmp/ would make Air rebuild in response to its
+# own output — an infinite loop.
+exclude_dir = ["tmp", "bin", "storage", "docs", ".git", ".vscode"]
+
+# Do not restart because a test file changed; `go test` is a separate loop.
+exclude_regex = ["_test\\.go"]
+
+# Wait this long after a change before rebuilding. Editors write files in
+# several steps; without a delay Air fires two or three times per save.
+delay = 300 # ms
+
+# Stop the old process before starting the new one, so both do not try to bind
+# to port 8080 at once.
+kill_delay = "1s"
+send_interrupt = true
+
+# If the build fails, keep the previous binary running rather than leaving you
+# with nothing listening.
+stop_on_error = true
+
+[log]
+time = false
+
+[misc]
+# Delete tmp/ when Air exits.
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = true

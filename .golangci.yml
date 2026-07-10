@@ -1,0 +1,112 @@
+# golangci-lint configuration — schema version 2.
+#
+# NOTE: v2 changed this file's shape completely. Configs you find online with a
+# top-level `linters-settings:` or `run: skip-dirs:` are v1 and will be
+# rejected. `golangci-lint migrate` converts an old one.
+#
+# Verify this file with:  golangci-lint config verify
+
+version: "2"
+
+run:
+  timeout: 5m
+  # Lint test files too. A bug in a test is a test that passes when it should
+  # not, which is worse than a bug in production code.
+  tests: true
+
+linters:
+  # `standard` is errcheck, govet, ineffassign, staticcheck, unused.
+  # Everything below is added on top.
+  default: standard
+
+  enable:
+    # ── Correctness ────────────────────────────────────────────────────────
+    - bodyclose      # an unclosed HTTP response body leaks a connection
+    - rowserrcheck   # forgetting rows.Err() silently truncates a result set
+    - sqlclosecheck  # an unclosed sql.Rows holds a pooled connection forever
+    - nilerr         # `if err != nil { return nil }` — returning nil on error
+    - errorlint      # comparing errors with == instead of errors.Is
+    - noctx          # an HTTP request built without a context cannot be cancelled
+    - copyloopvar    # stale loop-variable capture (a Go classic)
+    - durationcheck  # multiplying two durations, which is never what you meant
+
+    # ── Security ───────────────────────────────────────────────────────────
+    - gosec          # hardcoded credentials, weak RNG, unhandled file perms
+
+    # ── Clarity ────────────────────────────────────────────────────────────
+    - revive         # the maintained successor to golint
+    - misspell       # typos in comments and strings
+    - unconvert      # redundant type conversions
+    - wastedassign
+    - nolintlint     # a //nolint with no explanation is a lint suppression bug
+
+  settings:
+    errcheck:
+      # Checking the error from these adds noise and communicates nothing.
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+
+    govet:
+      enable:
+        # Catches a struct copied by value that contains a mutex — silently
+        # producing two locks that guard nothing.
+        - copylocks
+        # Catches Printf verb/type mismatches, including in our own helpers.
+        - printf
+
+      # `shadow` is deliberately NOT enabled.
+      #
+      # It flags `if err := f(); err != nil` whenever an `err` already exists in
+      # an enclosing scope — which is the most idiomatic line in the language.
+      # Enabling it produced 10 findings in this codebase, every one of them a
+      # false positive.
+      #
+      # The Go team ships shadow as experimental and excludes it from `go vet`'s
+      # default set for precisely this reason. A linter that cries wolf teaches
+      # you to ignore linters.
+
+    gosec:
+      excludes:
+        # G104 duplicates errcheck.
+        - G104
+
+    revive:
+      rules:
+        - name: exported
+          # Every exported symbol needs a doc comment. This is the rule that
+          # forces the explanations in this codebase to exist.
+          severity: warning
+        - name: unexported-return
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: indent-error-flow
+        - name: var-naming
+
+  exclusions:
+    rules:
+      # Tests may use weak randomness, hardcoded credentials, and unchecked
+      # errors in setup. Enforcing gosec there produces noise, not safety.
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+
+      # Migrations and generated docs are not ours to style.
+      - path: (^migrations/|^docs/)
+        linters:
+          - revive
+
+formatters:
+  enable:
+    - gofumpt    # a strict superset of gofmt; matches the gopls setting in VS Code
+    - goimports  # adds/removes imports and groups them
+
+  settings:
+    goimports:
+      # Sort imports into three groups: standard library, third party, then
+      # this module. Makes an accidental dependency on another internal package
+      # visible at a glance.
+      local-prefixes:
+        - github.com/the-bughex-code/backend

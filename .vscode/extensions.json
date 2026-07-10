@@ -1,0 +1,23 @@
+{
+  // VS Code prompts anyone who opens this project to install these.
+  // Keep the list minimal: an extension you do not need is startup time you
+  // pay on every launch.
+  "recommendations": [
+    // Required. Language server (gopls), debugging (Delve), test explorer,
+    // code lenses, refactoring.
+    "golang.go",
+
+    // Enforces the whitespace rules in .editorconfig across editors.
+    "editorconfig.editorconfig",
+
+    // Shows errors and warnings inline, at the end of the offending line,
+    // instead of only in the Problems panel.
+    "usernamehw.errorlens"
+  ],
+
+  "unwantedRecommendations": [
+    // Prettier does not understand Go and would fight gofmt if it were ever
+    // set as the default formatter for .go files.
+    "esbenp.prettier-vscode"
+  ]
+}

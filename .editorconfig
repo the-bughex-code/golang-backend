@@ -1,0 +1,34 @@
+# EditorConfig — one whitespace policy, honoured by every editor.
+#
+# Without this, your VS Code writes tabs, a teammate's GoLand writes spaces,
+# and every pull request is 90% whitespace noise.
+# https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Go uses tabs. This is not a preference: gofmt rewrites spaces to tabs on
+# every save, so any other setting simply loses.
+[*.go]
+indent_style = tab
+indent_size = 4
+
+# A Makefile REQUIRES a literal tab before each recipe line. A space here
+# produces the famously unhelpful "missing separator" error.
+[Makefile]
+indent_style = tab
+
+[*.{sql,sh}]
+indent_style = space
+indent_size = 4
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false
